@@ -5,6 +5,10 @@ let state = {
   batteries: [],
   couriers: [],
   history: [],
+  templates: {
+    bikeModels: ["Only U2 Pro", "Minako Monster V8", "Minako Monster Max", "Jetson V8 Pro", "Kugoo Kirin V1 Pro"],
+    batteryTypes: ["60V 21Ah", "60V 30Ah Увеличенная", "48V 18Ah", "60V 24Ah"]
+  },
   currentTab: 'dashboard',
   fleetFilter: 'all',
   batFilter: 'all',
@@ -32,12 +36,13 @@ function setupDate() {
 // Fetch all data from Backend API
 async function fetchAllData() {
   try {
-    const [statsRes, bikesRes, batsRes, couriersRes, histRes] = await Promise.all([
+    const [statsRes, bikesRes, batsRes, couriersRes, histRes, templRes] = await Promise.all([
       fetch('/api/stats'),
       fetch('/api/bikes'),
       fetch('/api/batteries'),
       fetch('/api/couriers'),
-      fetch('/api/history')
+      fetch('/api/history'),
+      fetch('/api/templates').catch(() => null)
     ]);
 
     state.stats = await statsRes.json();
@@ -46,11 +51,124 @@ async function fetchAllData() {
     state.couriers = await couriersRes.json();
     state.history = await histRes.json();
 
+    if (templRes && templRes.ok) {
+      state.templates = await templRes.json();
+    }
+
+    populateTemplateSelects();
     updateBadges();
     renderCurrentTab();
   } catch (err) {
     console.error('Error loading data:', err);
     showToast('Ошибка загрузки данных', 'error');
+  }
+}
+
+// Populate template dropdowns across modals
+function populateTemplateSelects() {
+  // 1. Bike Models
+  const newBikeModelSelect = document.getElementById('newBikeModelSelect');
+  const editBikeModelSelect = document.getElementById('editBikeModelSelect');
+  const bikeModels = (state.templates && state.templates.bikeModels) || [
+    "Only U2 Pro", "Minako Monster V8", "Minako Monster Max", "Jetson V8 Pro", "Kugoo Kirin V1 Pro"
+  ];
+
+  const modelOptions = bikeModels.map(m => `<option value="${m}">${m}</option>`).join('');
+  if (newBikeModelSelect) {
+    const currVal = newBikeModelSelect.value;
+    newBikeModelSelect.innerHTML = modelOptions;
+    if (currVal && bikeModels.includes(currVal)) newBikeModelSelect.value = currVal;
+  }
+  if (editBikeModelSelect) {
+    const currVal = editBikeModelSelect.value;
+    editBikeModelSelect.innerHTML = modelOptions;
+    if (currVal && bikeModels.includes(currVal)) editBikeModelSelect.value = currVal;
+  }
+
+  // 2. Battery Types
+  const newBatTypeSelect = document.getElementById('newBatTypeSelect');
+  const editBatTypeSelect = document.getElementById('editBatTypeSelect');
+  const batteryTypes = (state.templates && state.templates.batteryTypes) || [
+    "60V 21Ah", "60V 30Ah Увеличенная", "48V 18Ah", "60V 24Ah"
+  ];
+
+  const batOptions = batteryTypes.map(t => `<option value="${t}">${t}</option>`).join('');
+  if (newBatTypeSelect) {
+    const currVal = newBatTypeSelect.value;
+    newBatTypeSelect.innerHTML = batOptions;
+    if (currVal && batteryTypes.includes(currVal)) newBatTypeSelect.value = currVal;
+  }
+  if (editBatTypeSelect) {
+    const currVal = editBatTypeSelect.value;
+    editBatTypeSelect.innerHTML = batOptions;
+    if (currVal && batteryTypes.includes(currVal)) editBatTypeSelect.value = currVal;
+  }
+
+  // 3. Populate Available Batteries into Add Bike Modal
+  const newBikeBatterySelect = document.getElementById('newBikeBatterySelect');
+  if (newBikeBatterySelect) {
+    const freeBats = state.batteries.filter(b => b.status === 'available');
+    let opts = `<option value="">Без аккумулятора (установить позже)</option>`;
+    opts += freeBats.map(b => `<option value="${b.id}">#${b.id} (${b.type})</option>`).join('');
+    newBikeBatterySelect.innerHTML = opts;
+  }
+}
+
+// Quick Prompt: Add custom Bike Model Template
+async function promptNewBikeModel() {
+  const modelName = prompt('Введите название новой модели электровелосипеда:\n(например: Only U2 Pro V2, Minako F10)');
+  if (!modelName || !modelName.trim()) return;
+
+  const trimmed = modelName.trim();
+  try {
+    const res = await fetch('/api/templates/bike-models', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name: trimmed })
+    });
+    const data = await res.json();
+    if (data.templates) state.templates = data.templates;
+    else if (!state.templates.bikeModels.includes(trimmed)) state.templates.bikeModels.push(trimmed);
+
+    populateTemplateSelects();
+
+    const newSelect = document.getElementById('newBikeModelSelect');
+    if (newSelect) newSelect.value = trimmed;
+    const editSelect = document.getElementById('editBikeModelSelect');
+    if (editSelect) editSelect.value = trimmed;
+
+    showToast(`Шаблон модели "${trimmed}" добавлен!`, 'success');
+  } catch (err) {
+    showToast('Не удалось сохранить шаблон', 'error');
+  }
+}
+
+// Quick Prompt: Add custom Battery Type Template
+async function promptNewBatteryType() {
+  const typeName = prompt('Введите характеристику / емкость нового типа АКБ:\n(например: 60V 35Ah, 48V 25Ah Long Range)');
+  if (!typeName || !typeName.trim()) return;
+
+  const trimmed = typeName.trim();
+  try {
+    const res = await fetch('/api/templates/battery-types', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name: trimmed })
+    });
+    const data = await res.json();
+    if (data.templates) state.templates = data.templates;
+    else if (!state.templates.batteryTypes.includes(trimmed)) state.templates.batteryTypes.push(trimmed);
+
+    populateTemplateSelects();
+
+    const newSelect = document.getElementById('newBatTypeSelect');
+    if (newSelect) newSelect.value = trimmed;
+    const editSelect = document.getElementById('editBatTypeSelect');
+    if (editSelect) editSelect.value = trimmed;
+
+    showToast(`Шаблон АКБ "${trimmed}" добавлен!`, 'success');
+  } catch (err) {
+    showToast('Не удалось сохранить шаблон АКБ', 'error');
   }
 }
 
@@ -144,6 +262,41 @@ function renderDashboard() {
 
   document.getElementById('kpiWeeklyRevenue').innerText = `${state.stats.finance.weeklyRevenue.toLocaleString()} ₽`;
 
+  // Dynamic Attention Alert for Real Debtors
+  const alertContainer = document.getElementById('dashboardAlertContainer');
+  if (alertContainer) {
+    const debtors = state.couriers.filter(c => c.debt > 0);
+    if (debtors.length > 0) {
+      alertContainer.classList.remove('hidden');
+      alertContainer.innerHTML = debtors.map(c => `
+        <div class="bg-rose-50 border border-rose-200 rounded-2xl p-4 sm:p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4 shadow-sm">
+          <div class="flex items-start space-x-3.5">
+            <div class="w-10 h-10 rounded-xl bg-rose-100 text-rose-600 flex items-center justify-center flex-shrink-0 text-xl font-bold">
+              <i class="ph-bold ph-warning-circle"></i>
+            </div>
+            <div>
+              <div class="flex items-center space-x-2">
+                <span class="px-2 py-0.5 rounded-md text-[10px] font-bold bg-rose-600 text-white uppercase tracking-wider">Просрочка аренды</span>
+                <span class="text-xs font-mono font-bold text-rose-800">Долг: ${c.debt.toLocaleString()} ₽</span>
+              </div>
+              <h4 class="font-bold text-slate-900 text-sm mt-1">${c.fullName}</h4>
+              <p class="text-xs text-slate-500 mt-0.5">Телефон: <a href="tel:${c.phone}" class="text-rose-700 font-semibold underline">${c.phone}</a> • Байк: #${c.activeBikeId || 'Не закреплен'}</p>
+            </div>
+          </div>
+          <div class="flex items-center space-x-2 sm:self-center">
+            <button onclick="preparePaymentForCourier('${c.id}')" class="px-4 py-2 bg-rose-600 hover:bg-rose-700 text-white rounded-xl text-xs font-semibold shadow-sm transition-all flex items-center space-x-1.5">
+              <i class="ph-bold ph-money"></i>
+              <span>Принять оплату</span>
+            </button>
+          </div>
+        </div>
+      `).join('');
+    } else {
+      alertContainer.classList.add('hidden');
+      alertContainer.innerHTML = '';
+    }
+  }
+
   // Render Active Rentals Table
   const tableBody = document.getElementById('activeRentalsTableBody');
   if (!tableBody) return;
@@ -153,7 +306,7 @@ function renderDashboard() {
     tableBody.innerHTML = `<tr><td colspan="5" class="p-6 text-center text-slate-400">В данный момент нет активных аренд</td></tr>`;
   } else {
     tableBody.innerHTML = activeRentals.map(bike => {
-      const courier = state.couriers.find(c => c.id === bike.currentCourierId) || { fullName: 'Курьер', phone: '—', deliveryService: 'Доставка', debt: 0 };
+      const courier = state.couriers.find(c => c.id === bike.currentCourierId) || { fullName: 'Курьер', phone: '—', debt: 0 };
       const battery = state.batteries.find(b => b.id === bike.batteryId);
       const isDebtor = courier.debt > 0;
 
@@ -167,8 +320,6 @@ function renderDashboard() {
               <div>
                 <div class="font-bold text-slate-900">${courier.fullName}</div>
                 <div class="text-[11px] text-slate-400 flex items-center space-x-1">
-                  <span>${courier.deliveryService}</span>
-                  <span>•</span>
                   <span>${courier.phone}</span>
                 </div>
               </div>
@@ -287,10 +438,12 @@ function renderFleet() {
           <div class="flex items-start justify-between">
             <div class="flex items-center space-x-2">
               <span class="font-mono font-bold text-xs bg-slate-100 text-slate-700 px-2 py-0.5 rounded-md">#${bike.id}</span>
-              <span class="text-[11px] text-slate-400 font-mono">${bike.voltage}</span>
             </div>
             <div class="flex items-center space-x-1.5">
               ${statusBadge}
+              <button onclick="openEditBike('${bike.id}')" class="p-1 text-slate-400 hover:text-brand-600 hover:bg-brand-50 rounded-lg transition-all" title="Редактировать параметры байка">
+                <i class="ph-bold ph-pencil-simple text-sm"></i>
+              </button>
               <button onclick="deleteBike('${bike.id}')" class="p-1 text-slate-300 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-all" title="Удалить байк из парка">
                 <i class="ph-bold ph-trash text-sm"></i>
               </button>
@@ -299,8 +452,9 @@ function renderFleet() {
 
           <!-- Model & Specs -->
           <h3 class="font-bold text-slate-900 text-base mt-2.5">${bike.model}</h3>
-          <div class="text-xs text-slate-500 mt-0.5">
-            Рама/VIN: <strong class="font-mono text-slate-700">${bike.frameNumber}</strong>
+          <div class="text-xs text-slate-500 mt-0.5 flex items-center justify-between">
+            <span>VIN/Рама: <strong class="font-mono text-slate-700">${bike.frameNumber}</strong></span>
+            <span>Пробег: <strong class="text-slate-700">${bike.mileageKm || 0} км</strong></span>
           </div>
 
           <!-- Attached Battery Box -->
@@ -313,6 +467,11 @@ function renderFleet() {
             </div>
           </div>
 
+          <!-- Condition note -->
+          <div class="mt-2 text-[11px] text-slate-500">
+            Состояние: <span class="italic text-slate-600">${bike.condition || 'В норме'}</span>
+          </div>
+
           <!-- Courier / Location -->
           <div class="mt-3 text-xs">
             ${bike.status === 'in_rent' && courier ? `
@@ -320,7 +479,7 @@ function renderFleet() {
                 <i class="ph-bold ph-user text-emerald-700 text-sm"></i>
                 <div class="overflow-hidden">
                   <div class="font-bold text-slate-900 truncate">${courier.fullName}</div>
-                  <div class="text-[10px] text-slate-500">до ${bike.rentalEnd} • ${courier.deliveryService}</div>
+                  <div class="text-[10px] text-slate-500">до ${bike.rentalEnd} • ${courier.phone}</div>
                 </div>
               </div>
             ` : `
@@ -408,6 +567,9 @@ function renderBatteries() {
               <span class="px-2 py-0.5 rounded-full text-[10px] font-bold border ${isAvailable ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : 'bg-blue-50 text-blue-700 border-blue-200'}">
                 ${isAvailable ? 'Свободен (на складе)' : `На байке #${bat.assignedBike || '—'}`}
               </span>
+              <button onclick="openEditBattery('${bat.id}')" class="p-1 text-slate-400 hover:text-brand-600 hover:bg-brand-50 rounded-lg transition-all" title="Редактировать АКБ">
+                <i class="ph-bold ph-pencil-simple text-sm"></i>
+              </button>
               <button onclick="deleteBattery('${bat.id}')" class="p-1 text-slate-300 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-all" title="Удалить АКБ">
                 <i class="ph-bold ph-trash text-sm"></i>
               </button>
@@ -420,7 +582,7 @@ function renderBatteries() {
           </div>
 
           <div class="mt-3 p-2.5 rounded-xl bg-slate-50 border border-slate-100 text-xs text-slate-600">
-            <span class="text-slate-400 text-[11px] block">Примечание:</span>
+            <span class="text-slate-400 text-[11px] block">Примечание / Состояние:</span>
             <span>${bat.notes || 'В наличии'}</span>
           </div>
         </div>
@@ -446,10 +608,16 @@ function renderCouriers() {
   const container = document.getElementById('couriersGridContainer');
   if (!container) return;
 
+  if (!state.couriers || state.couriers.length === 0) {
+    container.innerHTML = `<div class="col-span-full p-12 text-center text-slate-400 bg-white rounded-2xl border border-slate-200">В базе нет курьеров. Нажмите «Добавить курьера» чтобы зарегистрировать первого.</div>`;
+    return;
+  }
+
   container.innerHTML = state.couriers.map(c => {
     const isDebtor = c.debt > 0;
     const hasBike = Boolean(c.activeBikeId);
     const bike = hasBike ? state.bikes.find(b => b.id === c.activeBikeId) : null;
+    const ratingNum = typeof c.rating === 'number' ? c.rating.toFixed(1) : (c.rating || '5.0');
 
     return `
       <div class="bg-white rounded-2xl border border-slate-200/80 p-4 sm:p-5 shadow-sm card-hover flex flex-col justify-between">
@@ -458,23 +626,24 @@ function renderCouriers() {
           <!-- Header -->
           <div class="flex items-start justify-between">
             <div class="flex items-center space-x-3">
-              <div class="w-10 h-10 rounded-full bg-slate-100 border border-slate-200 flex items-center justify-center font-bold text-slate-700 text-sm">
+              <div class="w-10 h-10 rounded-full bg-slate-100 border border-slate-200 flex items-center justify-center font-bold text-slate-700 text-sm flex-shrink-0">
                 ${c.fullName.charAt(0)}
               </div>
               <div>
                 <h3 class="font-bold text-slate-900 text-sm leading-snug">${c.fullName}</h3>
-                <span class="inline-block mt-0.5 px-2 py-0.5 rounded text-[10px] font-bold bg-slate-100 text-slate-700">
-                  ${c.deliveryService}
-                </span>
+                <span class="text-[11px] text-slate-400 font-mono">#${c.id}</span>
               </div>
             </div>
 
-            <!-- Rating & Delete -->
-            <div class="flex items-center space-x-2">
-              <div class="flex items-center space-x-1 text-xs font-bold text-amber-500">
+            <!-- Rating, Edit & Delete -->
+            <div class="flex items-center space-x-1.5">
+              <div class="flex items-center space-x-1 text-xs font-bold text-amber-500 bg-amber-50 px-2 py-0.5 rounded-lg border border-amber-200" title="Рейтинг курьера">
                 <i class="ph-fill ph-star"></i>
-                <span>${c.rating}</span>
+                <span>${ratingNum}</span>
               </div>
+              <button onclick="openEditCourier('${c.id}')" class="p-1 text-slate-400 hover:text-brand-600 hover:bg-brand-50 rounded-lg transition-all" title="Редактировать профиль курьера">
+                <i class="ph-bold ph-pencil-simple text-sm"></i>
+              </button>
               <button onclick="deleteCourier('${c.id}')" class="p-1 text-slate-300 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-all" title="Удалить курьера">
                 <i class="ph-bold ph-trash text-sm"></i>
               </button>
@@ -485,26 +654,31 @@ function renderCouriers() {
           <div class="mt-3 space-y-1 text-xs text-slate-600">
             <div class="flex items-center space-x-1.5">
               <i class="ph ph-phone text-slate-400"></i>
-              <a href="tel:${c.phone}" class="hover:text-brand-600 font-medium">${c.phone}</a>
+              <a href="tel:${c.phone}" class="hover:text-brand-600 font-semibold">${c.phone}</a>
             </div>
             <div class="flex items-center space-x-1.5 text-[11px] text-slate-400">
               <i class="ph ph-identification-card text-slate-400"></i>
-              <span>Паспорт: ${c.passportNumber}</span>
+              <span>Паспорт/РВП: ${c.passportNumber || 'Не указан'}</span>
             </div>
+            ${c.notes ? `
+              <div class="text-[11px] text-slate-500 bg-slate-50 p-2 rounded-lg border border-slate-100">
+                <span class="text-slate-400 font-semibold">Заметка:</span> ${c.notes}
+              </div>
+            ` : ''}
           </div>
 
           <!-- Financial Status -->
           <div class="mt-3 p-2.5 rounded-xl bg-slate-50 border border-slate-100 space-y-1 text-xs">
             <div class="flex justify-between">
               <span class="text-slate-500">Внесенный залог:</span>
-              <span class="font-bold text-slate-800">${c.deposit.toLocaleString()} ₽</span>
+              <span class="font-bold text-slate-800">${(c.deposit || 0).toLocaleString()} ₽</span>
             </div>
             <div class="flex justify-between">
               <span class="text-slate-500">Баланс / Долг:</span>
               ${isDebtor ? `
-                <span class="font-bold text-rose-600">Долг ${c.debt} ₽</span>
+                <span class="font-bold text-rose-600">Долг ${c.debt.toLocaleString()} ₽</span>
               ` : `
-                <span class="font-bold text-emerald-600">Нет долга</span>
+                <span class="font-bold text-emerald-600">Оплачено (без долгов)</span>
               `}
             </div>
           </div>
@@ -514,7 +688,7 @@ function renderCouriers() {
             ${hasBike && bike ? `
               <div class="p-2 rounded-xl bg-brand-50/60 border border-brand-100 text-brand-900 flex items-center justify-between">
                 <div>
-                  <div class="font-bold">Байк: #${bike.id}</div>
+                  <div class="font-bold">Байк: #${bike.id} (${bike.model})</div>
                   <div class="text-[10px] text-brand-700">АКБ #${bike.batteryId || '—'}</div>
                 </div>
                 <button onclick="prepareCheckin('${bike.id}')" class="px-2 py-1 bg-white hover:bg-brand-100 text-brand-800 font-semibold rounded text-[11px] border border-brand-200">
@@ -594,6 +768,8 @@ function openModal(id) {
 
   if (id === 'checkoutModal') populateCheckoutSelects();
   if (id === 'paymentModal') populatePaymentSelects();
+  if (id === 'addBikeModal') populateTemplateSelects();
+  if (id === 'addBatteryModal') populateTemplateSelects();
 
   modal.classList.remove('hidden');
 }
@@ -610,32 +786,271 @@ function populateCheckoutSelects() {
 
   // Couriers without bike
   const availableCouriers = state.couriers.filter(c => !c.activeBikeId);
-  courierSelect.innerHTML = availableCouriers.map(c => `
-    <option value="${c.id}">${c.fullName} (${c.deliveryService})</option>
-  `).join('');
+  courierSelect.innerHTML = availableCouriers.length > 0 
+    ? availableCouriers.map(c => `<option value="${c.id}">${c.fullName} (${c.phone})</option>`).join('')
+    : `<option value="">Нет свободных курьеров</option>`;
 
   // Available bikes
   const freeBikes = state.bikes.filter(b => b.status === 'available');
-  bikeSelect.innerHTML = freeBikes.map(b => `
-    <option value="${b.id}">#${b.id} — ${b.model} (${b.voltage})</option>
-  `).join('');
+  bikeSelect.innerHTML = freeBikes.length > 0 
+    ? freeBikes.map(b => `<option value="${b.id}">#${b.id} — ${b.model}</option>`).join('')
+    : `<option value="">Нет свободных велосипедов</option>`;
 
   // Available batteries
   const freeBatteries = state.batteries.filter(b => b.status === 'available');
-  batterySelect.innerHTML = freeBatteries.map(b => `
-    <option value="${b.id}">#${b.id} — ${b.type} (В наличии)</option>
-  `).join('');
+  batterySelect.innerHTML = freeBatteries.length > 0
+    ? freeBatteries.map(b => `<option value="${b.id}">#${b.id} — ${b.type}</option>`).join('')
+    : `<option value="">Нет свободных АКБ на складе</option>`;
 }
 
 function populatePaymentSelects() {
   const courierSelect = document.getElementById('paymentCourierSelect');
-  courierSelect.innerHTML = state.couriers.map(c => `
-    <option value="${c.id}">${c.fullName} ${c.debt > 0 ? `(ДОЛГ: ${c.debt} ₽)` : ''}</option>
-  `).join('');
+  if (courierSelect) {
+    courierSelect.innerHTML = state.couriers.length > 0 
+      ? state.couriers.map(c => `<option value="${c.id}">${c.fullName} ${c.debt > 0 ? `(ДОЛГ: ${c.debt.toLocaleString()} ₽)` : ''}</option>`).join('')
+      : `<option value="">Нет зарегистрированных курьеров</option>`;
+  }
 }
 
 // -------------------------------------------------------------
-// ACTIONS & HANDLERS
+// EDIT MODAL OPENERS & HANDLERS
+// -------------------------------------------------------------
+
+// --- Bike Edit ---
+function openEditBike(bikeId) {
+  const bike = state.bikes.find(b => b.id === bikeId);
+  if (!bike) return;
+
+  document.getElementById('editBikeId').value = bike.id;
+  document.getElementById('editBikeIdLabel').innerText = `#${bike.id}`;
+  document.getElementById('editBikeFrame').value = bike.frameNumber || '';
+  document.getElementById('editBikeMileage').value = bike.mileageKm || 0;
+  document.getElementById('editBikeCondition').value = bike.condition || '';
+  document.getElementById('editBikeStatusSelect').value = bike.status || 'available';
+
+  // Populate models
+  populateTemplateSelects();
+  const modelSelect = document.getElementById('editBikeModelSelect');
+  if (modelSelect) modelSelect.value = bike.model;
+
+  // Populate Battery Select: include free batteries PLUS currently assigned battery
+  const batSelect = document.getElementById('editBikeBatterySelect');
+  if (batSelect) {
+    const eligibleBats = state.batteries.filter(b => b.status === 'available' || b.id === bike.batteryId);
+    let options = `<option value="">Без аккумулятора</option>`;
+    options += eligibleBats.map(b => `
+      <option value="${b.id}" ${b.id === bike.batteryId ? 'selected' : ''}>
+        #${b.id} — ${b.type} ${b.id === bike.batteryId ? '(Текущий)' : ''}
+      </option>
+    `).join('');
+    batSelect.innerHTML = options;
+  }
+
+  openModal('editBikeModal');
+}
+
+async function handleEditBike(e) {
+  e.preventDefault();
+  const bikeId = document.getElementById('editBikeId').value;
+  const model = document.getElementById('editBikeModelSelect').value;
+  const frameNumber = document.getElementById('editBikeFrame').value;
+  const batteryId = document.getElementById('editBikeBatterySelect').value;
+  const status = document.getElementById('editBikeStatusSelect').value;
+  const mileageKm = document.getElementById('editBikeMileage').value;
+  const condition = document.getElementById('editBikeCondition').value;
+
+  try {
+    const res = await fetch(`/api/bikes/${bikeId}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ model, frameNumber, batteryId, status, mileageKm, condition })
+    });
+    const result = await res.json();
+    if (result.success) {
+      closeModal('editBikeModal');
+      showToast(`Байк #${bikeId} успешно обновлен!`, 'success');
+      fetchAllData();
+    } else {
+      showToast(result.error || 'Ошибка при сохранении байка', 'error');
+    }
+  } catch (err) {
+    showToast('Ошибка сети при обновлении байка', 'error');
+  }
+}
+
+// --- Battery Edit ---
+function openEditBattery(batId) {
+  const bat = state.batteries.find(b => b.id === batId);
+  if (!bat) return;
+
+  document.getElementById('editBatteryId').value = bat.id;
+  document.getElementById('editBatteryIdLabel').innerText = `#${bat.id}`;
+  document.getElementById('editBatNotes').value = bat.notes || '';
+  document.getElementById('editBatStatusSelect').value = bat.status || 'available';
+
+  populateTemplateSelects();
+  const typeSelect = document.getElementById('editBatTypeSelect');
+  if (typeSelect) typeSelect.value = bat.type;
+
+  openModal('editBatteryModal');
+}
+
+async function handleEditBattery(e) {
+  e.preventDefault();
+  const batId = document.getElementById('editBatteryId').value;
+  const type = document.getElementById('editBatTypeSelect').value;
+  const status = document.getElementById('editBatStatusSelect').value;
+  const notes = document.getElementById('editBatNotes').value;
+
+  try {
+    const res = await fetch(`/api/batteries/${batId}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ type, status, notes })
+    });
+    const result = await res.json();
+    if (result.success) {
+      closeModal('editBatteryModal');
+      showToast(`АКБ #${batId} успешно обновлена!`, 'success');
+      fetchAllData();
+    } else {
+      showToast(result.error || 'Ошибка при сохранении АКБ', 'error');
+    }
+  } catch (err) {
+    showToast('Ошибка сети при обновлении АКБ', 'error');
+  }
+}
+
+// --- Courier Edit ---
+function openEditCourier(courierId) {
+  const courier = state.couriers.find(c => c.id === courierId);
+  if (!courier) return;
+
+  document.getElementById('editCourierId').value = courier.id;
+  document.getElementById('editCourierIdLabel').innerText = `#${courier.id}`;
+  document.getElementById('editCourierName').value = courier.fullName || '';
+  document.getElementById('editCourierPhone').value = courier.phone || '';
+  document.getElementById('editCourierPassport').value = courier.passportNumber || '';
+  document.getElementById('editCourierDeposit').value = courier.deposit || 0;
+  document.getElementById('editCourierDebt').value = courier.debt || 0;
+  document.getElementById('editCourierNotes').value = courier.notes || '';
+
+  const ratingVal = typeof courier.rating === 'number' ? courier.rating.toFixed(1) : String(courier.rating || '5.0');
+  const ratingSelect = document.getElementById('editCourierRating');
+  if (ratingSelect) {
+    ratingSelect.value = ratingVal;
+  }
+
+  openModal('editCourierModal');
+}
+
+async function handleEditCourier(e) {
+  e.preventDefault();
+  const courierId = document.getElementById('editCourierId').value;
+  const fullName = document.getElementById('editCourierName').value;
+  const phone = document.getElementById('editCourierPhone').value;
+  const passportNumber = document.getElementById('editCourierPassport').value;
+  const deposit = document.getElementById('editCourierDeposit').value;
+  const debt = document.getElementById('editCourierDebt').value;
+  const rating = document.getElementById('editCourierRating').value;
+  const notes = document.getElementById('editCourierNotes').value;
+
+  try {
+    const res = await fetch(`/api/couriers/${courierId}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ fullName, phone, passportNumber, deposit, debt, rating, notes })
+    });
+    const result = await res.json();
+    if (result.success) {
+      closeModal('editCourierModal');
+      showToast(`Профиль курьера "${fullName}" обновлен!`, 'success');
+      fetchAllData();
+    } else {
+      showToast(result.error || 'Ошибка при обновлении курьера', 'error');
+    }
+  } catch (err) {
+    showToast('Ошибка сети при сохранении профиля курьера', 'error');
+  }
+}
+
+// -------------------------------------------------------------
+// ADD HANDLERS (BIKE, BATTERY, COURIER)
+// -------------------------------------------------------------
+async function handleAddBike(e) {
+  e.preventDefault();
+  const model = document.getElementById('newBikeModelSelect').value;
+  const frameNumber = document.getElementById('newBikeFrame').value;
+  const batteryId = document.getElementById('newBikeBatterySelect').value;
+  const mileageKm = document.getElementById('newBikeMileage').value;
+  const condition = document.getElementById('newBikeCondition').value;
+
+  try {
+    const res = await fetch('/api/bikes', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ model, frameNumber, batteryId, mileageKm, condition })
+    });
+    const result = await res.json();
+    if (result.success) {
+      closeModal('addBikeModal');
+      showToast('Новый электровелосипед добавлен в парк!', 'success');
+      fetchAllData();
+    }
+  } catch (err) {
+    showToast('Ошибка при добавлении байка', 'error');
+  }
+}
+
+async function handleAddBattery(e) {
+  e.preventDefault();
+  const type = document.getElementById('newBatTypeSelect').value;
+  const notes = document.getElementById('newBatNotes').value;
+
+  try {
+    const res = await fetch('/api/batteries', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ type, notes })
+    });
+    const result = await res.json();
+    if (result.success) {
+      closeModal('addBatteryModal');
+      showToast('Аккумулятор добавлен в реестр наличия!', 'success');
+      fetchAllData();
+    }
+  } catch (err) {
+    showToast('Ошибка при добавлении АКБ', 'error');
+  }
+}
+
+async function handleAddCourier(e) {
+  e.preventDefault();
+  const fullName = document.getElementById('newCourierName').value;
+  const phone = document.getElementById('newCourierPhone').value;
+  const passportNumber = document.getElementById('newCourierPassport').value;
+  const deposit = document.getElementById('newCourierDeposit').value;
+  const notes = document.getElementById('newCourierNotes').value;
+
+  try {
+    const res = await fetch('/api/couriers', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ fullName, phone, passportNumber, deposit, notes })
+    });
+    const result = await res.json();
+    if (result.success) {
+      closeModal('addCourierModal');
+      showToast(`Курьер ${fullName} успешно зарегистрирован!`, 'success');
+      fetchAllData();
+    }
+  } catch (err) {
+    showToast('Ошибка при добавлении курьера', 'error');
+  }
+}
+
+// -------------------------------------------------------------
+// CHECKOUT, CHECKIN & PAYMENT ACTIONS
 // -------------------------------------------------------------
 async function handleCheckout(e) {
   e.preventDefault();
@@ -644,6 +1059,11 @@ async function handleCheckout(e) {
   const batteryId = document.getElementById('checkoutBatterySelect').value;
   const days = document.getElementById('checkoutDaysSelect').value;
   const depositPaid = document.getElementById('checkoutDepositInput').value;
+
+  if (!courierId || !bikeId) {
+    showToast('Выберите курьера и велосипед!', 'error');
+    return;
+  }
 
   try {
     const res = await fetch('/api/rentals/checkout', {
@@ -656,6 +1076,8 @@ async function handleCheckout(e) {
       closeModal('checkoutModal');
       showToast('Велосипед и АКБ успешно выданы курьеру!', 'success');
       fetchAllData();
+    } else {
+      showToast(result.error || 'Ошибка при выдаче', 'error');
     }
   } catch (err) {
     showToast('Ошибка при оформлении выдачи', 'error');
@@ -704,6 +1126,11 @@ async function handlePayment(e) {
   const amount = document.getElementById('paymentAmountInput').value;
   const paymentType = document.querySelector('input[name="paymentType"]:checked').value;
 
+  if (!courierId) {
+    showToast('Выберите курьера!', 'error');
+    return;
+  }
+
   try {
     const res = await fetch('/api/payments', {
       method: 'POST',
@@ -718,77 +1145,6 @@ async function handlePayment(e) {
     }
   } catch (err) {
     showToast('Ошибка при зачислении платежа', 'error');
-  }
-}
-
-async function handleAddBike(e) {
-  e.preventDefault();
-  const model = document.getElementById('newBikeModel').value;
-  const frameNumber = document.getElementById('newBikeFrame').value;
-  const voltage = document.getElementById('newBikeVoltage').value;
-  const mileageKm = document.getElementById('newBikeMileage').value;
-
-  try {
-    const res = await fetch('/api/bikes', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ model, frameNumber, voltage, mileageKm })
-    });
-    const result = await res.json();
-    if (result.success) {
-      closeModal('addBikeModal');
-      showToast('Новый электровелосипед добавлен в парк!', 'success');
-      fetchAllData();
-    }
-  } catch (err) {
-    showToast('Ошибка при добавлении байка', 'error');
-  }
-}
-
-async function handleAddBattery(e) {
-  e.preventDefault();
-  const type = document.getElementById('newBatType').value;
-  const notes = document.getElementById('newBatNotes').value;
-
-  try {
-    const res = await fetch('/api/batteries', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ type, model: `Li-ion ${type}`, notes })
-    });
-    const result = await res.json();
-    if (result.success) {
-      closeModal('addBatteryModal');
-      showToast('Аккумулятор добавлен в реестр наличия!', 'success');
-      fetchAllData();
-    }
-  } catch (err) {
-    showToast('Ошибка при добавлении АКБ', 'error');
-  }
-}
-
-async function handleAddCourier(e) {
-  e.preventDefault();
-  const fullName = document.getElementById('newCourierName').value;
-  const phone = document.getElementById('newCourierPhone').value;
-  const deliveryService = document.getElementById('newCourierService').value;
-  const passportNumber = document.getElementById('newCourierPassport').value;
-  const deposit = document.getElementById('newCourierDeposit').value;
-
-  try {
-    const res = await fetch('/api/couriers', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ fullName, phone, deliveryService, passportNumber, deposit })
-    });
-    const result = await res.json();
-    if (result.success) {
-      closeModal('addCourierModal');
-      showToast(`Курьер ${fullName} успешно зарегистрирован!`, 'success');
-      fetchAllData();
-    }
-  } catch (err) {
-    showToast('Ошибка при добавлении курьера', 'error');
   }
 }
 

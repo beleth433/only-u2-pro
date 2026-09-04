@@ -237,25 +237,9 @@
 
         </div>
 
-        <!-- Attention Alert -->
-        <div class="bg-amber-50/70 border border-amber-200 rounded-2xl p-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
-          <div class="flex items-start sm:items-center space-x-3">
-            <div class="w-9 h-9 rounded-xl bg-amber-500 text-white flex items-center justify-center flex-shrink-0">
-              <i class="ph-bold ph-bell-ringing text-lg"></i>
-            </div>
-            <div>
-              <h4 class="text-sm font-bold text-amber-900">Просрочка аренды: Бахром Каримов (байк #MB-107)</h4>
-              <p class="text-xs text-amber-700 mt-0.5">Срок оплаты истек 1 сентября. Задолженность: 1 200 ₽.</p>
-            </div>
-          </div>
-          <div class="flex items-center space-x-2 flex-shrink-0 w-full sm:w-auto">
-            <a href="tel:+79037771234" class="flex-1 sm:flex-none text-center px-3.5 py-1.5 bg-amber-600 hover:bg-amber-700 text-white text-xs font-semibold rounded-xl transition-all">
-              Позвонить
-            </a>
-            <button onclick="preparePaymentForCourier('C-04')" class="flex-1 sm:flex-none px-3.5 py-1.5 bg-white border border-amber-300 text-amber-900 text-xs font-semibold rounded-xl hover:bg-amber-50 transition-all">
-              Принять оплату
-            </button>
-          </div>
+        <!-- Dynamic Attention Alert (Показывается только если есть реальные должники) -->
+        <div id="dashboardAlertContainer" class="hidden space-y-3">
+          <!-- Заполняется динамически через JS -->
         </div>
 
         <!-- Two Columns: Active Rentals Table & Battery Stock -->
@@ -751,25 +735,32 @@
       </div>
       <form id="addBikeForm" onsubmit="handleAddBike(event)" class="mt-4 space-y-3 text-xs">
         <div>
-          <label class="block font-semibold text-slate-700 mb-1">Модель электровелосипеда</label>
-          <input type="text" id="newBikeModel" required value="Minako Monster V8" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl outline-none">
+          <div class="flex justify-between items-center mb-1">
+            <label class="font-semibold text-slate-700">Модель электровелосипеда</label>
+            <button type="button" onclick="promptNewBikeModel()" class="text-brand-600 font-semibold hover:underline text-[11px]">+ Свой шаблон</button>
+          </div>
+          <select id="newBikeModelSelect" required class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl outline-none">
+            <!-- Populated dynamically via JS -->
+          </select>
         </div>
         <div>
           <label class="block font-semibold text-slate-700 mb-1">Номер рамы / VIN</label>
-          <input type="text" id="newBikeFrame" required placeholder="MNK-88901-PRO" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl outline-none">
+          <input type="text" id="newBikeFrame" required placeholder="U2-88901-PRO" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl outline-none">
         </div>
-        <div class="grid grid-cols-2 gap-2">
-          <div>
-            <label class="block font-semibold text-slate-700 mb-1">Вольтаж</label>
-            <select id="newBikeVoltage" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl outline-none">
-              <option value="60V">60V</option>
-              <option value="48V">48V</option>
-            </select>
-          </div>
-          <div>
-            <label class="block font-semibold text-slate-700 mb-1">Пробег (км)</label>
-            <input type="number" id="newBikeMileage" value="0" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl outline-none">
-          </div>
+        <div>
+          <label class="block font-semibold text-slate-700 mb-1">Установить аккумулятор (необязательно)</label>
+          <select id="newBikeBatterySelect" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl outline-none">
+            <option value="">Без аккумулятора (установить позже)</option>
+            <!-- Populated via JS -->
+          </select>
+        </div>
+        <div>
+          <label class="block font-semibold text-slate-700 mb-1">Пробег (км)</label>
+          <input type="number" id="newBikeMileage" value="0" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl outline-none">
+        </div>
+        <div>
+          <label class="block font-semibold text-slate-700 mb-1">Состояние / Примечание</label>
+          <input type="text" id="newBikeCondition" value="Отличное (готов к выдаче)" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl outline-none">
         </div>
         <div class="pt-2 flex items-center space-x-2">
           <button type="button" onclick="closeModal('addBikeModal')" class="flex-1 py-2.5 bg-slate-100 text-slate-700 rounded-xl font-semibold">Отмена</button>
@@ -780,7 +771,68 @@
   </div>
 
 
-  <!-- 7. ADD BATTERY MODAL -->
+  <!-- 7. EDIT BIKE MODAL -->
+  <div id="editBikeModal" class="modal-backdrop hidden fixed inset-0 bg-slate-900/50 backdrop-blur-xs z-50 flex items-center justify-center p-4">
+    <div class="bg-white rounded-3xl max-w-md w-full p-6 shadow-2xl">
+      <div class="flex items-center justify-between pb-4 border-b border-slate-100">
+        <div>
+          <h3 class="font-bold text-slate-900 text-base">Редактировать электровелосипед</h3>
+          <span class="text-xs text-slate-400 font-mono" id="editBikeIdLabel">#MB-101</span>
+        </div>
+        <button onclick="closeModal('editBikeModal')" class="w-8 h-8 rounded-full bg-slate-100 text-slate-400 hover:text-slate-700 flex items-center justify-center">
+          <i class="ph-bold ph-x"></i>
+        </button>
+      </div>
+      <form id="editBikeForm" onsubmit="handleEditBike(event)" class="mt-4 space-y-3 text-xs">
+        <input type="hidden" id="editBikeId">
+        <div>
+          <div class="flex justify-between items-center mb-1">
+            <label class="font-semibold text-slate-700">Модель</label>
+            <button type="button" onclick="promptNewBikeModel()" class="text-brand-600 font-semibold hover:underline text-[11px]">+ Свой шаблон</button>
+          </div>
+          <select id="editBikeModelSelect" required class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl outline-none">
+            <!-- Populated via JS -->
+          </select>
+        </div>
+        <div>
+          <label class="block font-semibold text-slate-700 mb-1">Номер рамы / VIN</label>
+          <input type="text" id="editBikeFrame" required class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl outline-none">
+        </div>
+        <div>
+          <label class="block font-semibold text-slate-700 mb-1">Выданный аккумулятор (АКБ)</label>
+          <select id="editBikeBatterySelect" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl outline-none">
+            <option value="">Без аккумулятора</option>
+            <!-- Populated via JS -->
+          </select>
+        </div>
+        <div class="grid grid-cols-2 gap-2">
+          <div>
+            <label class="block font-semibold text-slate-700 mb-1">Статус</label>
+            <select id="editBikeStatusSelect" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl outline-none">
+              <option value="available">Свободен</option>
+              <option value="service">На ремонте / ТО</option>
+              <option value="in_rent">В аренде</option>
+            </select>
+          </div>
+          <div>
+            <label class="block font-semibold text-slate-700 mb-1">Пробег (км)</label>
+            <input type="number" id="editBikeMileage" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl outline-none">
+          </div>
+        </div>
+        <div>
+          <label class="block font-semibold text-slate-700 mb-1">Состояние / Заметки</label>
+          <input type="text" id="editBikeCondition" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl outline-none">
+        </div>
+        <div class="pt-2 flex items-center space-x-2">
+          <button type="button" onclick="closeModal('editBikeModal')" class="flex-1 py-2.5 bg-slate-100 text-slate-700 rounded-xl font-semibold">Отмена</button>
+          <button type="submit" class="flex-1 py-2.5 bg-brand-600 text-white rounded-xl font-semibold shadow-md shadow-brand-600/30">Сохранить</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+
+  <!-- 8. ADD BATTERY MODAL -->
   <div id="addBatteryModal" class="modal-backdrop hidden fixed inset-0 bg-slate-900/50 backdrop-blur-xs z-50 flex items-center justify-center p-4">
     <div class="bg-white rounded-3xl max-w-md w-full p-6 shadow-2xl">
       <div class="flex items-center justify-between pb-4 border-b border-slate-100">
@@ -791,11 +843,12 @@
       </div>
       <form id="addBatteryForm" onsubmit="handleAddBattery(event)" class="mt-4 space-y-3 text-xs">
         <div>
-          <label class="block font-semibold text-slate-700 mb-1">Характеристики / Модель</label>
-          <select id="newBatType" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl outline-none">
-            <option value="60V 21Ah">60V 21Ah (Стандарт)</option>
-            <option value="60V 30Ah">60V 30Ah (Увеличенная емкость)</option>
-            <option value="48V 18Ah">48V 18Ah</option>
+          <div class="flex justify-between items-center mb-1">
+            <label class="font-semibold text-slate-700">Характеристика / Емкость АКБ</label>
+            <button type="button" onclick="promptNewBatteryType()" class="text-brand-600 font-semibold hover:underline text-[11px]">+ Свой шаблон</button>
+          </div>
+          <select id="newBatTypeSelect" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl outline-none">
+            <!-- Populated via JS -->
           </select>
         </div>
         <div>
@@ -811,7 +864,51 @@
   </div>
 
 
-  <!-- 8. ADD COURIER MODAL -->
+  <!-- 9. EDIT BATTERY MODAL -->
+  <div id="editBatteryModal" class="modal-backdrop hidden fixed inset-0 bg-slate-900/50 backdrop-blur-xs z-50 flex items-center justify-center p-4">
+    <div class="bg-white rounded-3xl max-w-md w-full p-6 shadow-2xl">
+      <div class="flex items-center justify-between pb-4 border-b border-slate-100">
+        <div>
+          <h3 class="font-bold text-slate-900 text-base">Редактировать аккумулятор</h3>
+          <span class="text-xs text-slate-400 font-mono" id="editBatteryIdLabel">#BAT-01</span>
+        </div>
+        <button onclick="closeModal('editBatteryModal')" class="w-8 h-8 rounded-full bg-slate-100 text-slate-400 hover:text-slate-700 flex items-center justify-center">
+          <i class="ph-bold ph-x"></i>
+        </button>
+      </div>
+      <form id="editBatteryForm" onsubmit="handleEditBattery(event)" class="mt-4 space-y-3 text-xs">
+        <input type="hidden" id="editBatteryId">
+        <div>
+          <div class="flex justify-between items-center mb-1">
+            <label class="font-semibold text-slate-700">Характеристика / Емкость</label>
+            <button type="button" onclick="promptNewBatteryType()" class="text-brand-600 font-semibold hover:underline text-[11px]">+ Свой шаблон</button>
+          </div>
+          <select id="editBatTypeSelect" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl outline-none">
+            <!-- Populated via JS -->
+          </select>
+        </div>
+        <div>
+          <label class="block font-semibold text-slate-700 mb-1">Статус АКБ</label>
+          <select id="editBatStatusSelect" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl outline-none">
+            <option value="available">Свободен (на складе)</option>
+            <option value="in_use">Выдан к байку</option>
+            <option value="service">В ремонте / На ТО</option>
+          </select>
+        </div>
+        <div>
+          <label class="block font-semibold text-slate-700 mb-1">Примечание / Состояние</label>
+          <input type="text" id="editBatNotes" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl outline-none">
+        </div>
+        <div class="pt-2 flex items-center space-x-2">
+          <button type="button" onclick="closeModal('editBatteryModal')" class="flex-1 py-2.5 bg-slate-100 text-slate-700 rounded-xl font-semibold">Отмена</button>
+          <button type="submit" class="flex-1 py-2.5 bg-brand-600 text-white rounded-xl font-semibold shadow-md shadow-brand-600/30">Сохранить</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+
+  <!-- 10. ADD COURIER MODAL -->
   <div id="addCourierModal" class="modal-backdrop hidden fixed inset-0 bg-slate-900/50 backdrop-blur-xs z-50 flex items-center justify-center p-4">
     <div class="bg-white rounded-3xl max-w-md w-full p-6 shadow-2xl">
       <div class="flex items-center justify-between pb-4 border-b border-slate-100">
@@ -830,26 +927,80 @@
           <input type="tel" id="newCourierPhone" required placeholder="+7 (999) 000-00-00" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl outline-none">
         </div>
         <div>
-          <label class="block font-semibold text-slate-700 mb-1">Служба доставки</label>
-          <select id="newCourierService" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl outline-none">
-            <option value="Яндекс Еда">Яндекс Еда</option>
-            <option value="Купер (СберМаркет)">Купер (СберМаркет)</option>
-            <option value="Самокат">Самокат</option>
-            <option value="Достависта">Достависта</option>
-            <option value="Другая">Другая</option>
-          </select>
-        </div>
-        <div>
           <label class="block font-semibold text-slate-700 mb-1">Паспортные данные / Регистрация</label>
-          <input type="text" id="newCourierPassport" placeholder="Серия, номер" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl outline-none">
+          <input type="text" id="newCourierPassport" placeholder="Серия, номер или регистрация" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl outline-none">
         </div>
         <div>
           <label class="block font-semibold text-slate-700 mb-1">Первоначальный залог (₽)</label>
           <input type="number" id="newCourierDeposit" value="5000" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl outline-none">
         </div>
+        <div>
+          <label class="block font-semibold text-slate-700 mb-1">Заметки / Примечание</label>
+          <input type="text" id="newCourierNotes" placeholder="Например: Постоянный клиент, аккуратный" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl outline-none">
+        </div>
         <div class="pt-2 flex items-center space-x-2">
           <button type="button" onclick="closeModal('addCourierModal')" class="flex-1 py-2.5 bg-slate-100 text-slate-700 rounded-xl font-semibold">Отмена</button>
           <button type="submit" class="flex-1 py-2.5 bg-brand-600 text-white rounded-xl font-semibold shadow-md shadow-brand-600/30">Добавить</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+
+  <!-- 11. EDIT COURIER MODAL -->
+  <div id="editCourierModal" class="modal-backdrop hidden fixed inset-0 bg-slate-900/50 backdrop-blur-xs z-50 flex items-center justify-center p-4">
+    <div class="bg-white rounded-3xl max-w-md w-full p-6 shadow-2xl">
+      <div class="flex items-center justify-between pb-4 border-b border-slate-100">
+        <div>
+          <h3 class="font-bold text-slate-900 text-base">Редактировать профиль курьера</h3>
+          <span class="text-xs text-slate-400 font-mono" id="editCourierIdLabel">#C-01</span>
+        </div>
+        <button onclick="closeModal('editCourierModal')" class="w-8 h-8 rounded-full bg-slate-100 text-slate-400 hover:text-slate-700 flex items-center justify-center">
+          <i class="ph-bold ph-x"></i>
+        </button>
+      </div>
+      <form id="editCourierForm" onsubmit="handleEditCourier(event)" class="mt-4 space-y-3 text-xs">
+        <input type="hidden" id="editCourierId">
+        <div>
+          <label class="block font-semibold text-slate-700 mb-1">ФИО курьера</label>
+          <input type="text" id="editCourierName" required class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl outline-none">
+        </div>
+        <div>
+          <label class="block font-semibold text-slate-700 mb-1">Телефон</label>
+          <input type="tel" id="editCourierPhone" required class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl outline-none">
+        </div>
+        <div>
+          <label class="block font-semibold text-slate-700 mb-1">Паспортные данные / Регистрация</label>
+          <input type="text" id="editCourierPassport" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl outline-none">
+        </div>
+        <div class="grid grid-cols-2 gap-2">
+          <div>
+            <label class="block font-semibold text-slate-700 mb-1">Внесенный залог (₽)</label>
+            <input type="number" id="editCourierDeposit" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl outline-none">
+          </div>
+          <div>
+            <label class="block font-semibold text-slate-700 mb-1">Задолженность (₽)</label>
+            <input type="number" id="editCourierDebt" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl outline-none text-rose-600 font-bold">
+          </div>
+        </div>
+        <div>
+          <label class="block font-semibold text-slate-700 mb-1">Рейтинг надежности (⭐ от 1.0 до 5.0)</label>
+          <select id="editCourierRating" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl outline-none font-semibold">
+            <option value="5.0">5.0 ⭐ (Идеальный, бережет технику)</option>
+            <option value="4.8">4.8 ⭐ (Надежный)</option>
+            <option value="4.0">4.0 ⭐ (Бывают мелкие задержки)</option>
+            <option value="3.2">3.2 ⭐ (На контроле / Должник)</option>
+            <option value="2.0">2.0 ⭐ (Проблемный)</option>
+            <option value="1.0">1.0 ⭐ (Черный список)</option>
+          </select>
+        </div>
+        <div>
+          <label class="block font-semibold text-slate-700 mb-1">Заметки / Характеристика</label>
+          <textarea id="editCourierNotes" rows="2" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl outline-none"></textarea>
+        </div>
+        <div class="pt-2 flex items-center space-x-2">
+          <button type="button" onclick="closeModal('editCourierModal')" class="flex-1 py-2.5 bg-slate-100 text-slate-700 rounded-xl font-semibold">Отмена</button>
+          <button type="submit" class="flex-1 py-2.5 bg-brand-600 text-white rounded-xl font-semibold shadow-md shadow-brand-600/30">Сохранить</button>
         </div>
       </form>
     </div>

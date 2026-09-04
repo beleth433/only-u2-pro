@@ -74,6 +74,42 @@ app.get('/api/stats', (req, res) => {
   });
 });
 
+// --- TEMPLATES (Модели байков и типы АКБ) ---
+app.get('/api/templates', (req, res) => {
+  const data = loadData();
+  const templates = data.settings.templates || {
+    bikeModels: ["Only U2 Pro", "Minako Monster V8", "Minako Monster Max", "Jetson V8 Pro", "Kugoo Kirin V1 Pro"],
+    batteryTypes: ["60V 21Ah", "60V 30Ah Увеличенная", "48V 18Ah", "60V 24Ah"]
+  };
+  res.json(templates);
+});
+
+app.post('/api/templates/bike-models', (req, res) => {
+  const data = loadData();
+  if (!data.settings.templates) {
+    data.settings.templates = { bikeModels: [], batteryTypes: [] };
+  }
+  const { name } = req.body;
+  if (name && !data.settings.templates.bikeModels.includes(name.trim())) {
+    data.settings.templates.bikeModels.push(name.trim());
+    saveData(data);
+  }
+  res.json({ success: true, templates: data.settings.templates });
+});
+
+app.post('/api/templates/battery-types', (req, res) => {
+  const data = loadData();
+  if (!data.settings.templates) {
+    data.settings.templates = { bikeModels: [], batteryTypes: [] };
+  }
+  const { name } = req.body;
+  if (name && !data.settings.templates.batteryTypes.includes(name.trim())) {
+    data.settings.templates.batteryTypes.push(name.trim());
+    saveData(data);
+  }
+  res.json({ success: true, templates: data.settings.templates });
+});
+
 // 2. Bikes
 app.get('/api/bikes', (req, res) => {
   const data = loadData();
@@ -82,14 +118,15 @@ app.get('/api/bikes', (req, res) => {
 
 app.post('/api/bikes', (req, res) => {
   const data = loadData();
-  const { model, frameNumber, voltage, batteryId, mileageKm, condition } = req.body;
+  const { model, frameNumber, batteryId, mileageKm, condition } = req.body;
   const newId = `MB-${100 + data.bikes.length + 1}`;
   
+  const bikeModel = model ? model.trim() : 'Only U2 Pro';
+
   const newBike = {
     id: newId,
-    model: model || 'Minako Monster V8',
-    frameNumber: frameNumber || `MNK-${Math.floor(10000 + Math.random() * 90000)}`,
-    voltage: voltage || '60V',
+    model: bikeModel,
+    frameNumber: frameNumber || `U2-${Math.floor(10000 + Math.random() * 90000)}`,
     mileageKm: Number(mileageKm) || 0,
     status: 'available',
     batteryId: batteryId || null,
@@ -108,9 +145,59 @@ app.post('/api/bikes', (req, res) => {
     }
   }
 
+  // Auto-save model to templates if new
+  if (!data.settings.templates) {
+    data.settings.templates = { bikeModels: [], batteryTypes: [] };
+  }
+  if (!data.settings.templates.bikeModels.includes(bikeModel)) {
+    data.settings.templates.bikeModels.push(bikeModel);
+  }
+
   data.bikes.push(newBike);
   saveData(data);
   res.json({ success: true, bike: newBike });
+});
+
+// Full update for bike
+app.patch('/api/bikes/:id', (req, res) => {
+  const data = loadData();
+  const bike = data.bikes.find(b => b.id === req.params.id);
+  if (!bike) return res.status(404).json({ error: 'Bike not found' });
+
+  const { model, frameNumber, mileageKm, condition, status, location, batteryId } = req.body;
+  if (model !== undefined) bike.model = model.trim();
+  if (frameNumber !== undefined) bike.frameNumber = frameNumber.trim();
+  if (mileageKm !== undefined) bike.mileageKm = Number(mileageKm) || 0;
+  if (condition !== undefined) bike.condition = condition;
+  if (status !== undefined) bike.status = status;
+  if (location !== undefined) bike.location = location;
+
+  if (batteryId !== undefined) {
+    // If old battery was different, release it
+    if (bike.batteryId && bike.batteryId !== batteryId) {
+      const oldBat = data.batteries.find(b => b.id === bike.batteryId);
+      if (oldBat) {
+        oldBat.status = 'available';
+        oldBat.assignedBike = null;
+      }
+    }
+    bike.batteryId = batteryId || null;
+    if (batteryId) {
+      const newBat = data.batteries.find(b => b.id === batteryId);
+      if (newBat) {
+        newBat.status = 'in_use';
+        newBat.assignedBike = bike.id;
+      }
+    }
+  }
+
+  // Auto-save model to templates
+  if (model && data.settings.templates && !data.settings.templates.bikeModels.includes(model.trim())) {
+    data.settings.templates.bikeModels.push(model.trim());
+  }
+
+  saveData(data);
+  res.json({ success: true, bike });
 });
 
 app.patch('/api/bikes/:id/status', (req, res) => {
@@ -166,21 +253,52 @@ app.get('/api/batteries', (req, res) => {
 
 app.post('/api/batteries', (req, res) => {
   const data = loadData();
-  const { model, type, notes } = req.body;
+  const { type, notes } = req.body;
   const newId = `BAT-${String(data.batteries.length + 1).padStart(2, '0')}`;
+
+  const batType = type ? type.trim() : '60V 21Ah';
 
   const newBat = {
     id: newId,
-    model: model || 'Li-ion 60V 21Ah',
-    type: type || '60V 21Ah',
+    model: `Li-ion ${batType}`,
+    type: batType,
     status: 'available',
     assignedBike: null,
     notes: notes || 'На складе, свободен'
   };
 
+  // Auto-save battery type to templates
+  if (!data.settings.templates) {
+    data.settings.templates = { bikeModels: [], batteryTypes: [] };
+  }
+  if (!data.settings.templates.batteryTypes.includes(batType)) {
+    data.settings.templates.batteryTypes.push(batType);
+  }
+
   data.batteries.push(newBat);
   saveData(data);
   res.json({ success: true, battery: newBat });
+});
+
+// Full update for battery
+app.patch('/api/batteries/:id', (req, res) => {
+  const data = loadData();
+  const bat = data.batteries.find(b => b.id === req.params.id);
+  if (!bat) return res.status(404).json({ error: 'Battery not found' });
+
+  const { type, notes, status } = req.body;
+  if (type !== undefined) {
+    bat.type = type.trim();
+    bat.model = `Li-ion ${type.trim()}`;
+    if (data.settings.templates && !data.settings.templates.batteryTypes.includes(type.trim())) {
+      data.settings.templates.batteryTypes.push(type.trim());
+    }
+  }
+  if (notes !== undefined) bat.notes = notes;
+  if (status !== undefined) bat.status = status;
+
+  saveData(data);
+  res.json({ success: true, battery: bat });
 });
 
 app.delete('/api/batteries/:id', (req, res) => {
@@ -211,14 +329,13 @@ app.get('/api/couriers', (req, res) => {
 
 app.post('/api/couriers', (req, res) => {
   const data = loadData();
-  const { fullName, phone, deliveryService, passportNumber, deposit, notes } = req.body;
+  const { fullName, phone, passportNumber, deposit, notes } = req.body;
   const newId = `C-0${data.couriers.length + 1}`;
 
   const newCourier = {
     id: newId,
-    fullName,
-    phone,
-    deliveryService: deliveryService || 'Яндекс Еда',
+    fullName: fullName ? fullName.trim() : 'Курьер',
+    phone: phone || '',
     passportNumber: passportNumber || 'Не указан',
     status: 'waiting',
     balance: 0,
@@ -232,6 +349,35 @@ app.post('/api/couriers', (req, res) => {
   data.couriers.push(newCourier);
   saveData(data);
   res.json({ success: true, courier: newCourier });
+});
+
+// Full update for courier
+app.patch('/api/couriers/:id', (req, res) => {
+  const data = loadData();
+  const courier = data.couriers.find(c => c.id === req.params.id);
+  if (!courier) return res.status(404).json({ error: 'Courier not found' });
+
+  const { fullName, phone, passportNumber, deposit, debt, rating, notes } = req.body;
+  if (fullName !== undefined) courier.fullName = fullName.trim();
+  if (phone !== undefined) courier.phone = phone.trim();
+  if (passportNumber !== undefined) courier.passportNumber = passportNumber.trim();
+  if (deposit !== undefined) courier.deposit = Number(deposit) || 0;
+  if (debt !== undefined) {
+    courier.debt = Number(debt) || 0;
+    if (courier.debt > 0) {
+      courier.status = 'debtor';
+    } else if (courier.status === 'debtor') {
+      courier.status = courier.activeBikeId ? 'active' : 'waiting';
+    }
+  }
+  if (rating !== undefined) {
+    const r = parseFloat(rating);
+    courier.rating = isNaN(r) ? 5.0 : Math.min(5.0, Math.max(1.0, r));
+  }
+  if (notes !== undefined) courier.notes = notes;
+
+  saveData(data);
+  res.json({ success: true, courier });
 });
 
 app.delete('/api/couriers/:id', (req, res) => {
