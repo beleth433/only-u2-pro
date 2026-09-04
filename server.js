@@ -650,6 +650,11 @@ app.post('/api/auth/telegram', (req, res) => {
   }
 });
 
+app.get('/api/all-data', (req, res) => {
+  const data = loadData();
+  res.json(data);
+});
+
 app.get('/api/history', (req, res) => {
   const data = loadData();
   res.json(data.history || []);
