@@ -242,18 +242,20 @@ function updateBadges() {
     batContainer.innerHTML = html;
   }
 
-  // 3. Couriers: Total (slate), Debtors/Overdue (rose, only if > 0)
+  // 3. Couriers: Active couriers in rent (blue), Overdue debtors (rose)
   const courierContainer = document.getElementById('badgesCouriersContainer');
   if (courierContainer) {
-    const totalCouriers = state.couriers.length;
-    const debtorsCount = state.couriers.filter(c => (c.debt || 0) > 0).length;
+    const activeCouriers = state.couriers.filter(c => {
+      return Boolean(c.activeBikeId) || state.bikes.some(b => b.currentCourierId === c.id && b.status === 'in_rent');
+    }).length;
+    const overdueCount = state.couriers.filter(c => (c.debt || 0) > 0).length;
 
     let html = '';
-    if (totalCouriers > 0) {
-      html += `<span class="text-xs px-1.5 py-0.5 rounded-md font-bold bg-slate-100 text-slate-700" title="Всего курьеров: ${totalCouriers}">${totalCouriers}</span>`;
+    if (activeCouriers > 0) {
+      html += `<span class="text-xs px-1.5 py-0.5 rounded-md font-bold bg-blue-50 text-blue-700 border border-blue-200/80" title="Активные курьеры (в аренде): ${activeCouriers}">${activeCouriers}</span>`;
     }
-    if (debtorsCount > 0) {
-      html += `<span class="text-xs px-1.5 py-0.5 rounded-md font-bold bg-rose-50 text-rose-700 border border-rose-200/80" title="Просрочили аренду: ${debtorsCount}">${debtorsCount}</span>`;
+    if (overdueCount > 0) {
+      html += `<span class="text-xs px-1.5 py-0.5 rounded-md font-bold bg-rose-50 text-rose-700 border border-rose-200/80" title="Просрочили аренду (должники): ${overdueCount}">${overdueCount}</span>`;
     }
     courierContainer.innerHTML = html;
   }
