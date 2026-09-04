@@ -101,26 +101,32 @@
   <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 w-full flex-1 flex flex-col md:flex-row gap-6">
 
     <!-- DESKTOP SIDEBAR -->
-    <aside class="hidden md:block w-56 flex-shrink-0">
+    <aside class="hidden md:block w-64 flex-shrink-0">
       <nav class="space-y-1 sticky top-24">
         <a href="#dashboard" onclick="switchTab('dashboard')" id="nav-dashboard" class="nav-link active flex items-center space-x-3 px-3.5 py-2.5 rounded-xl text-sm font-medium transition-all">
           <i class="ph-bold ph-squares-four text-lg"></i>
           <span>Главная</span>
         </a>
-        <a href="#fleet" onclick="switchTab('fleet')" id="nav-fleet" class="nav-link flex items-center space-x-3 px-3.5 py-2.5 rounded-xl text-sm font-medium transition-all">
-          <i class="ph-bold ph-bicycle text-lg"></i>
-          <span>Велопарк</span>
-          <span class="ml-auto text-xs px-2 py-0.5 rounded-md bg-slate-100 font-semibold text-slate-600" id="badgeTotalBikes">8</span>
+        <a href="#fleet" onclick="switchTab('fleet')" id="nav-fleet" class="nav-link flex items-center justify-between px-3.5 py-2.5 rounded-xl text-sm font-medium transition-all">
+          <div class="flex items-center space-x-3">
+            <i class="ph-bold ph-bicycle text-lg"></i>
+            <span>Велопарк</span>
+          </div>
+          <div class="flex items-center space-x-1 flex-shrink-0" id="badgesFleetContainer"></div>
         </a>
-        <a href="#batteries" onclick="switchTab('batteries')" id="nav-batteries" class="nav-link flex items-center space-x-3 px-3.5 py-2.5 rounded-xl text-sm font-medium transition-all">
-          <i class="ph-bold ph-battery-high text-lg"></i>
-          <span>Наличие АКБ</span>
-          <span class="ml-auto text-xs px-2 py-0.5 rounded-md bg-emerald-50 text-emerald-700 font-semibold" id="badgeReadyBatteries">5</span>
+        <a href="#batteries" onclick="switchTab('batteries')" id="nav-batteries" class="nav-link flex items-center justify-between px-3.5 py-2.5 rounded-xl text-sm font-medium transition-all">
+          <div class="flex items-center space-x-3">
+            <i class="ph-bold ph-battery-high text-lg"></i>
+            <span>Наличие АКБ</span>
+          </div>
+          <div class="flex items-center space-x-1 flex-shrink-0" id="badgesBatteriesContainer"></div>
         </a>
-        <a href="#couriers" onclick="switchTab('couriers')" id="nav-couriers" class="nav-link flex items-center space-x-3 px-3.5 py-2.5 rounded-xl text-sm font-medium transition-all">
-          <i class="ph-bold ph-users text-lg"></i>
-          <span>Курьеры</span>
-          <span class="ml-auto text-xs px-2 py-0.5 rounded-md bg-rose-50 text-rose-700 font-semibold" id="badgeDebtors">1</span>
+        <a href="#couriers" onclick="switchTab('couriers')" id="nav-couriers" class="nav-link flex items-center justify-between px-3.5 py-2.5 rounded-xl text-sm font-medium transition-all">
+          <div class="flex items-center space-x-3">
+            <i class="ph-bold ph-users text-lg"></i>
+            <span>Курьеры</span>
+          </div>
+          <div class="flex items-center space-x-1 flex-shrink-0" id="badgesCouriersContainer"></div>
         </a>
         <a href="#history" onclick="switchTab('history')" id="nav-history" class="nav-link flex items-center space-x-3 px-3.5 py-2.5 rounded-xl text-sm font-medium transition-all">
           <i class="ph-bold ph-clock-counter-clockwise text-lg"></i>

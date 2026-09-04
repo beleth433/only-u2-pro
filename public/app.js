@@ -206,16 +206,57 @@ function switchTab(tabId, updateHash = true) {
 }
 
 function updateBadges() {
-  const totalBikesEl = document.getElementById('badgeTotalBikes');
-  if (totalBikesEl) totalBikesEl.innerText = state.bikes.length;
+  // 1. Fleet: Free/available (blue), In rent (emerald), In service (amber)
+  const fleetContainer = document.getElementById('badgesFleetContainer');
+  if (fleetContainer) {
+    const availBikes = state.bikes.filter(b => b.status === 'available').length;
+    const inRentBikes = state.bikes.filter(b => b.status === 'in_rent').length;
+    const serviceBikes = state.bikes.filter(b => b.status === 'service').length;
 
-  const availableBats = state.batteries.filter(b => b.status === 'available').length;
-  const readyBatsEl = document.getElementById('badgeReadyBatteries');
-  if (readyBatsEl) readyBatsEl.innerText = availableBats;
+    let html = '';
+    if (availBikes > 0) {
+      html += `<span class="text-xs px-1.5 py-0.5 rounded-md font-bold bg-blue-50 text-blue-700 border border-blue-200/80" title="Свободно: ${availBikes}">${availBikes}</span>`;
+    }
+    if (inRentBikes > 0) {
+      html += `<span class="text-xs px-1.5 py-0.5 rounded-md font-bold bg-emerald-50 text-emerald-700 border border-emerald-200/80" title="В аренде: ${inRentBikes}">${inRentBikes}</span>`;
+    }
+    if (serviceBikes > 0) {
+      html += `<span class="text-xs px-1.5 py-0.5 rounded-md font-bold bg-amber-50 text-amber-700 border border-amber-200/80" title="В ремонте: ${serviceBikes}">${serviceBikes}</span>`;
+    }
+    fleetContainer.innerHTML = html;
+  }
 
-  const debtorsCount = state.couriers.filter(c => c.debt > 0).length;
-  const debtorsEl = document.getElementById('badgeDebtors');
-  if (debtorsEl) debtorsEl.innerText = debtorsCount;
+  // 2. Batteries: Free/available on stock (emerald), In use/rent (blue)
+  const batContainer = document.getElementById('badgesBatteriesContainer');
+  if (batContainer) {
+    const availBats = state.batteries.filter(b => b.status === 'available').length;
+    const inUseBats = state.batteries.filter(b => b.status === 'in_use').length;
+
+    let html = '';
+    if (availBats > 0) {
+      html += `<span class="text-xs px-1.5 py-0.5 rounded-md font-bold bg-emerald-50 text-emerald-700 border border-emerald-200/80" title="Свободно на складе: ${availBats}">${availBats}</span>`;
+    }
+    if (inUseBats > 0) {
+      html += `<span class="text-xs px-1.5 py-0.5 rounded-md font-bold bg-blue-50 text-blue-700 border border-blue-200/80" title="В аренде: ${inUseBats}">${inUseBats}</span>`;
+    }
+    batContainer.innerHTML = html;
+  }
+
+  // 3. Couriers: Total (slate), Debtors/Overdue (rose, only if > 0)
+  const courierContainer = document.getElementById('badgesCouriersContainer');
+  if (courierContainer) {
+    const totalCouriers = state.couriers.length;
+    const debtorsCount = state.couriers.filter(c => (c.debt || 0) > 0).length;
+
+    let html = '';
+    if (totalCouriers > 0) {
+      html += `<span class="text-xs px-1.5 py-0.5 rounded-md font-bold bg-slate-100 text-slate-700" title="Всего курьеров: ${totalCouriers}">${totalCouriers}</span>`;
+    }
+    if (debtorsCount > 0) {
+      html += `<span class="text-xs px-1.5 py-0.5 rounded-md font-bold bg-rose-50 text-rose-700 border border-rose-200/80" title="Просрочили аренду: ${debtorsCount}">${debtorsCount}</span>`;
+    }
+    courierContainer.innerHTML = html;
+  }
 }
 
 function renderCurrentTab() {
