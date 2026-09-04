@@ -19,11 +19,25 @@ let state = {
   }
 };
 
+let currentTemplateTab = 'bikes';
+let pendingDeleteCallback = null;
+
 // Initialize App
 document.addEventListener('DOMContentLoaded', () => {
   setupDate();
+  loadFromLocalCache();
   fetchAllData();
   setupEventListeners();
+
+  const confirmBtn = document.getElementById('confirmDeleteSubmitBtn');
+  if (confirmBtn) {
+    confirmBtn.onclick = () => {
+      if (typeof pendingDeleteCallback === 'function') {
+        pendingDeleteCallback();
+      }
+      closeConfirmDelete();
+    };
+  }
 });
 
 function setupDate() {
@@ -31,6 +45,33 @@ function setupDate() {
   const today = new Date().toLocaleDateString('ru-RU', options);
   const el = document.getElementById('currentDateString');
   if (el) el.innerText = today.charAt(0).toUpperCase() + today.slice(1);
+}
+
+// Local cache to make UI instant and resilient across environments
+function loadFromLocalCache() {
+  try {
+    const cached = localStorage.getItem('only_u2_pro_data');
+    if (cached) {
+      const parsed = JSON.parse(cached);
+      if (parsed.bikes) state.bikes = parsed.bikes;
+      if (parsed.batteries) state.batteries = parsed.batteries;
+      if (parsed.couriers) state.couriers = parsed.couriers;
+      if (parsed.templates) state.templates = parsed.templates;
+      populateTemplateSelects();
+      renderCurrentTab();
+    }
+  } catch (e) {}
+}
+
+function saveToLocalCache() {
+  try {
+    localStorage.setItem('only_u2_pro_data', JSON.stringify({
+      bikes: state.bikes,
+      batteries: state.batteries,
+      couriers: state.couriers,
+      templates: state.templates
+    }));
+  } catch (e) {}
 }
 
 // Fetch all data from Backend API
@@ -45,22 +86,152 @@ async function fetchAllData() {
       fetch('/api/templates').catch(() => null)
     ]);
 
-    state.stats = await statsRes.json();
-    state.bikes = await bikesRes.json();
-    state.batteries = await batsRes.json();
-    state.couriers = await couriersRes.json();
-    state.history = await histRes.json();
+    if (statsRes.ok) state.stats = await statsRes.json();
+    if (bikesRes.ok) state.bikes = await bikesRes.json();
+    if (batsRes.ok) state.batteries = await batsRes.json();
+    if (couriersRes.ok) state.couriers = await couriersRes.json();
+    if (histRes.ok) state.history = await histRes.json();
 
     if (templRes && templRes.ok) {
       state.templates = await templRes.json();
     }
 
+    saveToLocalCache();
     populateTemplateSelects();
     updateBadges();
     renderCurrentTab();
   } catch (err) {
     console.error('Error loading data:', err);
-    showToast('Ошибка загрузки данных', 'error');
+    showToast('Ошибка синхронизации с сервером', 'error');
+  }
+}
+
+// -------------------------------------------------------------
+// TEMPLATE MANAGEMENT (МОДАЛЬНОЕ ОКНО УПРАВЛЕНИЯ ШАБЛОНАМИ)
+// -------------------------------------------------------------
+function openTemplateManager(tab = 'bikes') {
+  currentTemplateTab = tab;
+  switchTemplateManagerTab(tab);
+  openModal('templateManagerModal');
+}
+
+function switchTemplateManagerTab(tab) {
+  currentTemplateTab = tab;
+  const bikesBtn = document.getElementById('tmplTabBikesBtn');
+  const batsBtn = document.getElementById('tmplTabBatsBtn');
+  const input = document.getElementById('tmplInput');
+  const title = document.getElementById('tmplListTitle');
+
+  if (tab === 'bikes') {
+    if (bikesBtn) {
+      bikesBtn.className = 'flex-1 py-2 text-xs font-bold rounded-xl bg-white text-slate-900 shadow-xs transition-all';
+    }
+    if (batsBtn) {
+      batsBtn.className = 'flex-1 py-2 text-xs font-bold rounded-xl text-slate-500 hover:text-slate-900 transition-all';
+    }
+    if (input) input.placeholder = 'Название модели (например: Minako F10, Only U2 Pro V2)...';
+    if (title) title.innerText = 'Текущие модели велосипедов:';
+  } else {
+    if (batsBtn) {
+      batsBtn.className = 'flex-1 py-2 text-xs font-bold rounded-xl bg-white text-slate-900 shadow-xs transition-all';
+    }
+    if (bikesBtn) {
+      bikesBtn.className = 'flex-1 py-2 text-xs font-bold rounded-xl text-slate-500 hover:text-slate-900 transition-all';
+    }
+    if (input) input.placeholder = 'Характеристика АКБ (например: 60V 35Ah, 48V 25Ah)...';
+    if (title) title.innerText = 'Текущие типы и емкости АКБ:';
+  }
+
+  if (input) input.value = '';
+  renderTemplateManagerList();
+}
+
+function renderTemplateManagerList() {
+  const container = document.getElementById('tmplListContainer');
+  if (!container) return;
+
+  const items = currentTemplateTab === 'bikes' 
+    ? (state.templates.bikeModels || []) 
+    : (state.templates.batteryTypes || []);
+
+  if (items.length === 0) {
+    container.innerHTML = `<div class="p-4 text-center text-slate-400 text-xs">Список пуст. Добавьте первый шаблон выше.</div>`;
+    return;
+  }
+
+  container.innerHTML = items.map(item => `
+    <div class="flex items-center justify-between p-2.5 rounded-xl bg-slate-50 border border-slate-200/80 hover:bg-slate-100/80 transition-all">
+      <span class="font-semibold text-slate-800 text-xs">${item}</span>
+      <button type="button" onclick="deleteTemplateFromManager('${encodeURIComponent(item)}')" class="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-all" title="Удалить этот шаблон">
+        <i class="ph-bold ph-trash text-sm"></i>
+      </button>
+    </div>
+  `).join('');
+}
+
+async function handleAddTemplateFromManager() {
+  const input = document.getElementById('tmplInput');
+  if (!input) return;
+  const val = input.value.trim();
+  if (!val) {
+    showToast('Введите название для шаблона', 'error');
+    return;
+  }
+
+  const endpoint = currentTemplateTab === 'bikes' ? '/api/templates/bike-models' : '/api/templates/battery-types';
+
+  try {
+    const res = await fetch(endpoint, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name: val })
+    });
+    const data = await res.json();
+    if (data.templates) {
+      state.templates = data.templates;
+    } else {
+      if (currentTemplateTab === 'bikes' && !state.templates.bikeModels.includes(val)) {
+        state.templates.bikeModels.push(val);
+      } else if (currentTemplateTab === 'batteries' && !state.templates.batteryTypes.includes(val)) {
+        state.templates.batteryTypes.push(val);
+      }
+    }
+
+    input.value = '';
+    saveToLocalCache();
+    populateTemplateSelects();
+    renderTemplateManagerList();
+    showToast(`Шаблон «${val}» добавлен!`, 'success');
+  } catch (err) {
+    showToast('Ошибка при добавлении шаблона', 'error');
+  }
+}
+
+async function deleteTemplateFromManager(encodedName) {
+  const name = decodeURIComponent(encodedName);
+  const endpoint = currentTemplateTab === 'bikes'
+    ? `/api/templates/bike-models/${encodedName}`
+    : `/api/templates/battery-types/${encodedName}`;
+
+  try {
+    const res = await fetch(endpoint, { method: 'DELETE' });
+    const data = await res.json();
+    if (data.templates) {
+      state.templates = data.templates;
+    } else {
+      if (currentTemplateTab === 'bikes') {
+        state.templates.bikeModels = state.templates.bikeModels.filter(m => m !== name);
+      } else {
+        state.templates.batteryTypes = state.templates.batteryTypes.filter(t => t !== name);
+      }
+    }
+
+    saveToLocalCache();
+    populateTemplateSelects();
+    renderTemplateManagerList();
+    showToast(`Шаблон «${name}» удален!`, 'info');
+  } catch (err) {
+    showToast('Ошибка при удалении шаблона', 'error');
   }
 }
 
@@ -69,9 +240,9 @@ function populateTemplateSelects() {
   // 1. Bike Models
   const newBikeModelSelect = document.getElementById('newBikeModelSelect');
   const editBikeModelSelect = document.getElementById('editBikeModelSelect');
-  const bikeModels = (state.templates && state.templates.bikeModels) || [
-    "Only U2 Pro", "Minako Monster V8", "Minako Monster Max", "Jetson V8 Pro", "Kugoo Kirin V1 Pro"
-  ];
+  const bikeModels = (state.templates && state.templates.bikeModels && state.templates.bikeModels.length > 0) 
+    ? state.templates.bikeModels 
+    : ["Only U2 Pro", "Minako Monster V8", "Minako Monster Max", "Jetson V8 Pro", "Kugoo Kirin V1 Pro"];
 
   const modelOptions = bikeModels.map(m => `<option value="${m}">${m}</option>`).join('');
   if (newBikeModelSelect) {
@@ -88,9 +259,9 @@ function populateTemplateSelects() {
   // 2. Battery Types
   const newBatTypeSelect = document.getElementById('newBatTypeSelect');
   const editBatTypeSelect = document.getElementById('editBatTypeSelect');
-  const batteryTypes = (state.templates && state.templates.batteryTypes) || [
-    "60V 21Ah", "60V 30Ah Увеличенная", "48V 18Ah", "60V 24Ah"
-  ];
+  const batteryTypes = (state.templates && state.templates.batteryTypes && state.templates.batteryTypes.length > 0)
+    ? state.templates.batteryTypes
+    : ["60V 21Ah", "60V 30Ah Увеличенная", "48V 18Ah", "60V 24Ah"];
 
   const batOptions = batteryTypes.map(t => `<option value="${t}">${t}</option>`).join('');
   if (newBatTypeSelect) {
@@ -114,62 +285,25 @@ function populateTemplateSelects() {
   }
 }
 
-// Quick Prompt: Add custom Bike Model Template
-async function promptNewBikeModel() {
-  const modelName = prompt('Введите название новой модели электровелосипеда:\n(например: Only U2 Pro V2, Minako F10)');
-  if (!modelName || !modelName.trim()) return;
+// -------------------------------------------------------------
+// CONFIRM DELETE POPUP (БЕЗ window.confirm ДЛЯ 100% НАДЕЖНОСТИ)
+// -------------------------------------------------------------
+function openConfirmDelete(title, message, onConfirm) {
+  const titleEl = document.getElementById('confirmDeleteTitle');
+  const msgEl = document.getElementById('confirmDeleteMessage');
+  const modal = document.getElementById('confirmDeleteModal');
 
-  const trimmed = modelName.trim();
-  try {
-    const res = await fetch('/api/templates/bike-models', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ name: trimmed })
-    });
-    const data = await res.json();
-    if (data.templates) state.templates = data.templates;
-    else if (!state.templates.bikeModels.includes(trimmed)) state.templates.bikeModels.push(trimmed);
+  if (titleEl) titleEl.innerText = title;
+  if (msgEl) msgEl.innerText = message;
+  pendingDeleteCallback = onConfirm;
 
-    populateTemplateSelects();
-
-    const newSelect = document.getElementById('newBikeModelSelect');
-    if (newSelect) newSelect.value = trimmed;
-    const editSelect = document.getElementById('editBikeModelSelect');
-    if (editSelect) editSelect.value = trimmed;
-
-    showToast(`Шаблон модели "${trimmed}" добавлен!`, 'success');
-  } catch (err) {
-    showToast('Не удалось сохранить шаблон', 'error');
-  }
+  if (modal) modal.classList.remove('hidden');
 }
 
-// Quick Prompt: Add custom Battery Type Template
-async function promptNewBatteryType() {
-  const typeName = prompt('Введите характеристику / емкость нового типа АКБ:\n(например: 60V 35Ah, 48V 25Ah Long Range)');
-  if (!typeName || !typeName.trim()) return;
-
-  const trimmed = typeName.trim();
-  try {
-    const res = await fetch('/api/templates/battery-types', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ name: trimmed })
-    });
-    const data = await res.json();
-    if (data.templates) state.templates = data.templates;
-    else if (!state.templates.batteryTypes.includes(trimmed)) state.templates.batteryTypes.push(trimmed);
-
-    populateTemplateSelects();
-
-    const newSelect = document.getElementById('newBatTypeSelect');
-    if (newSelect) newSelect.value = trimmed;
-    const editSelect = document.getElementById('editBatTypeSelect');
-    if (editSelect) editSelect.value = trimmed;
-
-    showToast(`Шаблон АКБ "${trimmed}" добавлен!`, 'success');
-  } catch (err) {
-    showToast('Не удалось сохранить шаблон АКБ', 'error');
-  }
+function closeConfirmDelete() {
+  pendingDeleteCallback = null;
+  const modal = document.getElementById('confirmDeleteModal');
+  if (modal) modal.classList.add('hidden');
 }
 
 // Navigation & Tabs
@@ -246,26 +380,42 @@ function renderCurrentTab() {
 // 1. DASHBOARD RENDER
 // -------------------------------------------------------------
 function renderDashboard() {
-  if (!state.stats) return;
+  const inRentCount = state.bikes.filter(b => b.status === 'in_rent').length;
+  const availableBikesCount = state.bikes.filter(b => b.status === 'available').length;
+  const readyBatsCount = state.batteries.filter(b => b.status === 'available').length;
+  const inUseBatsCount = state.batteries.filter(b => b.status === 'in_use').length;
+  const debtors = state.couriers.filter(c => c.debt > 0);
+  const totalDebt = debtors.reduce((acc, c) => acc + (c.debt || 0), 0);
 
   // KPI counters
-  document.getElementById('kpiInRent').innerText = state.stats.fleet.inRent;
-  const inRentPct = Math.round((state.stats.fleet.inRent / (state.stats.fleet.total || 1)) * 100);
-  document.getElementById('kpiInRentPct').innerText = `${inRentPct}%`;
-  document.getElementById('kpiAvailable').innerText = state.stats.fleet.available;
+  const kpiInRentEl = document.getElementById('kpiInRent');
+  if (kpiInRentEl) kpiInRentEl.innerText = inRentCount;
 
-  document.getElementById('kpiReadyBatteries').innerText = state.stats.batteries.available;
-  document.getElementById('kpiInUseBatteries').innerText = state.stats.batteries.inUse;
+  const inRentPct = Math.round((inRentCount / (state.bikes.length || 1)) * 100);
+  const kpiInRentPctEl = document.getElementById('kpiInRentPct');
+  if (kpiInRentPctEl) kpiInRentPctEl.innerText = `${inRentPct}%`;
 
-  document.getElementById('kpiTotalDebt').innerText = `${state.stats.couriers.totalDebt.toLocaleString()} ₽`;
-  document.getElementById('kpiDebtorsCount').innerText = `${state.stats.couriers.debtorsCount} должн.`;
+  const kpiAvailEl = document.getElementById('kpiAvailable');
+  if (kpiAvailEl) kpiAvailEl.innerText = availableBikesCount;
 
-  document.getElementById('kpiWeeklyRevenue').innerText = `${state.stats.finance.weeklyRevenue.toLocaleString()} ₽`;
+  const kpiReadyBatEl = document.getElementById('kpiReadyBatteries');
+  if (kpiReadyBatEl) kpiReadyBatEl.innerText = readyBatsCount;
+
+  const kpiInUseBatEl = document.getElementById('kpiInUseBatteries');
+  if (kpiInUseBatEl) kpiInUseBatEl.innerText = inUseBatsCount;
+
+  const kpiTotalDebtEl = document.getElementById('kpiTotalDebt');
+  if (kpiTotalDebtEl) kpiTotalDebtEl.innerText = `${totalDebt.toLocaleString()} ₽`;
+
+  const kpiDebtorsCountEl = document.getElementById('kpiDebtorsCount');
+  if (kpiDebtorsCountEl) kpiDebtorsCountEl.innerText = `${debtors.length} должн.`;
+
+  const kpiWeeklyRevEl = document.getElementById('kpiWeeklyRevenue');
+  if (kpiWeeklyRevEl) kpiWeeklyRevEl.innerText = `${(inRentCount * 3500).toLocaleString()} ₽`;
 
   // Dynamic Attention Alert for Real Debtors
   const alertContainer = document.getElementById('dashboardAlertContainer');
   if (alertContainer) {
-    const debtors = state.couriers.filter(c => c.debt > 0);
     if (debtors.length > 0) {
       alertContainer.classList.remove('hidden');
       alertContainer.innerHTML = debtors.map(c => `
@@ -338,7 +488,7 @@ function renderDashboard() {
           </td>
           <td class="px-4 py-3.5">
             ${isDebtor 
-              ? `<span class="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-bold bg-rose-50 text-rose-700 border border-rose-200">Долг ${courier.debt} ₽</span>` 
+              ? `<span class="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-bold bg-rose-50 text-rose-700 border border-rose-200">Долг ${courier.debt.toLocaleString()} ₽</span>` 
               : `<span class="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200">Оплачено</span>`}
           </td>
           <td class="px-4 py-3.5 text-right">
@@ -407,10 +557,14 @@ function renderFleet() {
   }
 
   // Update counts
-  document.getElementById('countAllBikes').innerText = state.bikes.length;
-  document.getElementById('countInRent').innerText = state.bikes.filter(b => b.status === 'in_rent').length;
-  document.getElementById('countAvailable').innerText = state.bikes.filter(b => b.status === 'available').length;
-  document.getElementById('countService').innerText = state.bikes.filter(b => b.status === 'service').length;
+  const countAll = document.getElementById('countAllBikes');
+  if (countAll) countAll.innerText = state.bikes.length;
+  const countRent = document.getElementById('countInRent');
+  if (countRent) countRent.innerText = state.bikes.filter(b => b.status === 'in_rent').length;
+  const countAvail = document.getElementById('countAvailable');
+  if (countAvail) countAvail.innerText = state.bikes.filter(b => b.status === 'available').length;
+  const countServ = document.getElementById('countService');
+  if (countServ) countServ.innerText = state.bikes.filter(b => b.status === 'service').length;
 
   if (filtered.length === 0) {
     container.innerHTML = `<div class="col-span-full p-12 text-center text-slate-400 bg-white rounded-2xl border border-slate-200">В этой категории нет велосипедов</div>`;
@@ -479,7 +633,7 @@ function renderFleet() {
                 <i class="ph-bold ph-user text-emerald-700 text-sm"></i>
                 <div class="overflow-hidden">
                   <div class="font-bold text-slate-900 truncate">${courier.fullName}</div>
-                  <div class="text-[10px] text-slate-500">до ${bike.rentalEnd} • ${courier.phone}</div>
+                  <div class="text-[10px] text-slate-500">до ${bike.rentalEnd || '—'} • ${courier.phone}</div>
                 </div>
               </div>
             ` : `
@@ -546,9 +700,12 @@ function renderBatteries() {
     filtered = state.batteries.filter(b => b.status === 'in_use');
   }
 
-  document.getElementById('batCountAll').innerText = state.batteries.length;
-  document.getElementById('batCountAvailable').innerText = state.batteries.filter(b => b.status === 'available').length;
-  document.getElementById('batCountInUse').innerText = state.batteries.filter(b => b.status === 'in_use').length;
+  const bAll = document.getElementById('batCountAll');
+  if (bAll) bAll.innerText = state.batteries.length;
+  const bAvail = document.getElementById('batCountAvailable');
+  if (bAvail) bAvail.innerText = state.batteries.filter(b => b.status === 'available').length;
+  const bUse = document.getElementById('batCountInUse');
+  if (bUse) bUse.innerText = state.batteries.filter(b => b.status === 'in_use').length;
 
   if (filtered.length === 0) {
     container.innerHTML = `<div class="col-span-full p-12 text-center text-slate-400 bg-white rounded-2xl border border-slate-200">Нет аккумуляторов в этом статусе</div>`;
@@ -578,7 +735,7 @@ function renderBatteries() {
 
           <div class="mt-3">
             <div class="text-base font-bold text-slate-900">${bat.type}</div>
-            <div class="text-xs text-slate-500 mt-0.5">${bat.model}</div>
+            <div class="text-xs text-slate-500 mt-0.5">${bat.model || `Li-ion ${bat.type}`}</div>
           </div>
 
           <div class="mt-3 p-2.5 rounded-xl bg-slate-50 border border-slate-100 text-xs text-slate-600">
@@ -617,7 +774,9 @@ function renderCouriers() {
     const isDebtor = c.debt > 0;
     const hasBike = Boolean(c.activeBikeId);
     const bike = hasBike ? state.bikes.find(b => b.id === c.activeBikeId) : null;
-    const ratingNum = typeof c.rating === 'number' ? c.rating.toFixed(1) : (c.rating || '5.0');
+    
+    // Clean integer rating from 1 to 5 (no decimals)
+    const ratingInt = Math.min(5, Math.max(1, Math.round(Number(c.rating) || 5)));
 
     return `
       <div class="bg-white rounded-2xl border border-slate-200/80 p-4 sm:p-5 shadow-sm card-hover flex flex-col justify-between">
@@ -637,9 +796,9 @@ function renderCouriers() {
 
             <!-- Rating, Edit & Delete -->
             <div class="flex items-center space-x-1.5">
-              <div class="flex items-center space-x-1 text-xs font-bold text-amber-500 bg-amber-50 px-2 py-0.5 rounded-lg border border-amber-200" title="Рейтинг курьера">
+              <div class="flex items-center space-x-1 text-xs font-bold text-amber-500 bg-amber-50 px-2 py-0.5 rounded-lg border border-amber-200" title="Рейтинг надежности">
                 <i class="ph-fill ph-star"></i>
-                <span>${ratingNum}</span>
+                <span>${ratingInt}</span>
               </div>
               <button onclick="openEditCourier('${c.id}')" class="p-1 text-slate-400 hover:text-brand-600 hover:bg-brand-50 rounded-lg transition-all" title="Редактировать профиль курьера">
                 <i class="ph-bold ph-pencil-simple text-sm"></i>
@@ -935,10 +1094,11 @@ function openEditCourier(courierId) {
   document.getElementById('editCourierDebt').value = courier.debt || 0;
   document.getElementById('editCourierNotes').value = courier.notes || '';
 
-  const ratingVal = typeof courier.rating === 'number' ? courier.rating.toFixed(1) : String(courier.rating || '5.0');
+  // Clean integer rating from 1 to 5
+  const ratingInt = String(Math.min(5, Math.max(1, Math.round(Number(courier.rating) || 5))));
   const ratingSelect = document.getElementById('editCourierRating');
   if (ratingSelect) {
-    ratingSelect.value = ratingVal;
+    ratingSelect.value = ratingInt;
   }
 
   openModal('editCourierModal');
@@ -959,12 +1119,12 @@ async function handleEditCourier(e) {
     const res = await fetch(`/api/couriers/${courierId}`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ fullName, phone, passportNumber, deposit, debt, rating, notes })
+      body: JSON.stringify({ fullName, phone, passportNumber, deposit, debt, rating: parseInt(rating, 10), notes })
     });
     const result = await res.json();
     if (result.success) {
       closeModal('editCourierModal');
-      showToast(`Профиль курьера "${fullName}" обновлен!`, 'success');
+      showToast(`Профиль курьера «${fullName}» обновлен!`, 'success');
       fetchAllData();
     } else {
       showToast(result.error || 'Ошибка при обновлении курьера', 'error');
@@ -979,11 +1139,22 @@ async function handleEditCourier(e) {
 // -------------------------------------------------------------
 async function handleAddBike(e) {
   e.preventDefault();
-  const model = document.getElementById('newBikeModelSelect').value;
-  const frameNumber = document.getElementById('newBikeFrame').value;
-  const batteryId = document.getElementById('newBikeBatterySelect').value;
-  const mileageKm = document.getElementById('newBikeMileage').value;
-  const condition = document.getElementById('newBikeCondition').value;
+  const modelSelect = document.getElementById('newBikeModelSelect');
+  const model = modelSelect ? modelSelect.value : 'Only U2 Pro';
+  
+  const frameInput = document.getElementById('newBikeFrame');
+  const frameNumber = (frameInput && frameInput.value.trim()) 
+    ? frameInput.value.trim() 
+    : `U2-${Math.floor(10000 + Math.random() * 90000)}`;
+    
+  const batterySelect = document.getElementById('newBikeBatterySelect');
+  const batteryId = batterySelect ? batterySelect.value : '';
+  
+  const mileageInput = document.getElementById('newBikeMileage');
+  const mileageKm = mileageInput ? mileageInput.value : 0;
+  
+  const condInput = document.getElementById('newBikeCondition');
+  const condition = (condInput && condInput.value.trim()) ? condInput.value.trim() : 'Отличное (готов к выдаче)';
 
   try {
     const res = await fetch('/api/bikes', {
@@ -995,7 +1166,10 @@ async function handleAddBike(e) {
     if (result.success) {
       closeModal('addBikeModal');
       showToast('Новый электровелосипед добавлен в парк!', 'success');
+      if (frameInput) frameInput.value = '';
       fetchAllData();
+    } else {
+      showToast(result.error || 'Не удалось добавить байк', 'error');
     }
   } catch (err) {
     showToast('Ошибка при добавлении байка', 'error');
@@ -1004,8 +1178,11 @@ async function handleAddBike(e) {
 
 async function handleAddBattery(e) {
   e.preventDefault();
-  const type = document.getElementById('newBatTypeSelect').value;
-  const notes = document.getElementById('newBatNotes').value;
+  const typeSelect = document.getElementById('newBatTypeSelect');
+  const type = typeSelect ? typeSelect.value : '60V 21Ah';
+  
+  const notesInput = document.getElementById('newBatNotes');
+  const notes = notesInput ? notesInput.value.trim() : 'На складе, свободен';
 
   try {
     const res = await fetch('/api/batteries', {
@@ -1017,7 +1194,10 @@ async function handleAddBattery(e) {
     if (result.success) {
       closeModal('addBatteryModal');
       showToast('Аккумулятор добавлен в реестр наличия!', 'success');
+      if (notesInput) notesInput.value = '';
       fetchAllData();
+    } else {
+      showToast(result.error || 'Не удалось добавить АКБ', 'error');
     }
   } catch (err) {
     showToast('Ошибка при добавлении АКБ', 'error');
@@ -1031,18 +1211,25 @@ async function handleAddCourier(e) {
   const passportNumber = document.getElementById('newCourierPassport').value;
   const deposit = document.getElementById('newCourierDeposit').value;
   const notes = document.getElementById('newCourierNotes').value;
+  const ratingSelect = document.getElementById('newCourierRating');
+  const rating = ratingSelect ? parseInt(ratingSelect.value, 10) : 5;
 
   try {
     const res = await fetch('/api/couriers', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ fullName, phone, passportNumber, deposit, notes })
+      body: JSON.stringify({ fullName, phone, passportNumber, deposit, notes, rating })
     });
     const result = await res.json();
     if (result.success) {
       closeModal('addCourierModal');
       showToast(`Курьер ${fullName} успешно зарегистрирован!`, 'success');
+      document.getElementById('newCourierName').value = '';
+      document.getElementById('newCourierPhone').value = '';
+      document.getElementById('newCourierPassport').value = '';
       fetchAllData();
+    } else {
+      showToast(result.error || 'Не удалось зарегистрировать курьера', 'error');
     }
   } catch (err) {
     showToast('Ошибка при добавлении курьера', 'error');
@@ -1149,14 +1336,19 @@ async function handlePayment(e) {
 }
 
 async function sendToService(bikeId) {
-  if (!confirm(`Отправить байк #${bikeId} на ТО в мастерскую?`)) return;
-  await fetch(`/api/bikes/${bikeId}/status`, {
-    method: 'PATCH',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ status: 'service', location: 'Мастерская' })
-  });
-  showToast(`Байк #${bikeId} отправлен на ТО`, 'info');
-  fetchAllData();
+  openConfirmDelete(
+    'Отправить на ТО?',
+    `Отправить электровелосипед #${bikeId} в ремонтную мастерскую?`,
+    async () => {
+      await fetch(`/api/bikes/${bikeId}/status`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status: 'service', location: 'Мастерская' })
+      });
+      showToast(`Байк #${bikeId} отправлен на ТО`, 'info');
+      fetchAllData();
+    }
+  );
 }
 
 async function markReadyFromService(bikeId) {
@@ -1169,63 +1361,104 @@ async function markReadyFromService(bikeId) {
   fetchAllData();
 }
 
-async function deleteBike(bikeId) {
-  if (!confirm(`Вы действительно хотите удалить электровелосипед #${bikeId} из парка?`)) return;
-  try {
-    const res = await fetch(`/api/bikes/${bikeId}`, { method: 'DELETE' });
-    const result = await res.json();
-    if (result.success) {
-      showToast(`Байк #${bikeId} успешно удален!`, 'info');
-      fetchAllData();
+// Reliable Delete Functions (Uses Custom In-App Modal, never blocked by browser)
+function deleteBike(bikeId) {
+  if (!bikeId) return;
+  const bike = state.bikes.find(b => b.id === bikeId);
+  const name = bike ? `${bike.model} #${bike.id}` : `#${bikeId}`;
+  
+  openConfirmDelete(
+    'Удалить электровелосипед?',
+    `Вы действительно хотите удалить ${name} из парка?`,
+    async () => {
+      try {
+        const res = await fetch(`/api/bikes/${bikeId}`, { method: 'DELETE' });
+        const result = await res.json();
+        if (result.success) {
+          closeModal('editBikeModal');
+          showToast(`Байк #${bikeId} успешно удален!`, 'info');
+          fetchAllData();
+        } else {
+          showToast(result.error || 'Не удалось удалить байк', 'error');
+        }
+      } catch (err) {
+        showToast('Ошибка при удалении байка', 'error');
+      }
     }
-  } catch (err) {
-    showToast('Ошибка при удалении байка', 'error');
-  }
+  );
 }
 
-async function deleteBattery(batId) {
-  if (!confirm(`Удалить аккумулятор #${batId} из реестра?`)) return;
-  try {
-    const res = await fetch(`/api/batteries/${batId}`, { method: 'DELETE' });
-    const result = await res.json();
-    if (result.success) {
-      showToast(`АКБ #${batId} успешно удалена!`, 'info');
-      fetchAllData();
+function deleteBattery(batId) {
+  if (!batId) return;
+  const bat = state.batteries.find(b => b.id === batId);
+  const name = bat ? `${bat.type} #${bat.id}` : `#${batId}`;
+
+  openConfirmDelete(
+    'Удалить аккумулятор?',
+    `Вы действительно хотите удалить АКБ ${name} из реестра?`,
+    async () => {
+      try {
+        const res = await fetch(`/api/batteries/${batId}`, { method: 'DELETE' });
+        const result = await res.json();
+        if (result.success) {
+          closeModal('editBatteryModal');
+          showToast(`АКБ #${batId} успешно удалена!`, 'info');
+          fetchAllData();
+        } else {
+          showToast(result.error || 'Не удалось удалить АКБ', 'error');
+        }
+      } catch (err) {
+        showToast('Ошибка при удалении АКБ', 'error');
+      }
     }
-  } catch (err) {
-    showToast('Ошибка при удалении АКБ', 'error');
-  }
+  );
 }
 
-async function deleteCourier(courierId) {
+function deleteCourier(courierId) {
+  if (!courierId) return;
   const courier = state.couriers.find(c => c.id === courierId);
   const name = courier ? courier.fullName : courierId;
-  if (!confirm(`Удалить карточку курьера "${name}"? Если за ним числился байк, он вернется на склад.`)) return;
-  try {
-    const res = await fetch(`/api/couriers/${courierId}`, { method: 'DELETE' });
-    const result = await res.json();
-    if (result.success) {
-      showToast(`Курьер ${name} удален`, 'info');
-      fetchAllData();
+
+  openConfirmDelete(
+    'Удалить карточку курьера?',
+    `Удалить курьера «${name}»? Если за ним был закреплен байк, он вернется на склад.`,
+    async () => {
+      try {
+        const res = await fetch(`/api/couriers/${courierId}`, { method: 'DELETE' });
+        const result = await res.json();
+        if (result.success) {
+          closeModal('editCourierModal');
+          showToast(`Курьер «${name}» удален`, 'info');
+          fetchAllData();
+        } else {
+          showToast(result.error || 'Не удалось удалить курьера', 'error');
+        }
+      } catch (err) {
+        showToast('Ошибка при удалении курьера', 'error');
+      }
     }
-  } catch (err) {
-    showToast('Ошибка при удалении курьера', 'error');
-  }
+  );
 }
 
-async function resetDemoData() {
-  if (!confirm('Сбросить все данные к исходным демонстрационным? Это восстановит начальный парк, курьеров и батареи.')) return;
-  try {
-    const res = await fetch('/api/reset', { method: 'POST' });
-    const result = await res.json();
-    if (result.success) {
-      showToast('База данных успешно сброшена к начальным демо-данным!', 'success');
-      closeModal('authModal');
-      fetchAllData();
+function resetDemoData() {
+  openConfirmDelete(
+    'Сброс базы данных?',
+    'Сбросить все данные к исходным демонстрационным? Это восстановит начальный парк, курьеров и батареи.',
+    async () => {
+      try {
+        const res = await fetch('/api/reset', { method: 'POST' });
+        const result = await res.json();
+        if (result.success) {
+          showToast('База данных успешно сброшена к начальным демо-данным!', 'success');
+          closeModal('authModal');
+          localStorage.removeItem('only_u2_pro_data');
+          fetchAllData();
+        }
+      } catch (err) {
+        showToast('Ошибка при сбросе данных', 'error');
+      }
     }
-  } catch (err) {
-    showToast('Ошибка при сбросе данных', 'error');
-  }
+  );
 }
 
 function prepareCheckoutForBike(bikeId) {

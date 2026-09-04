@@ -318,6 +318,10 @@
             <p class="text-xs sm:text-sm text-slate-500">Учет велосипедов, закрепленных курьеров и номеров АКБ</p>
           </div>
           <div class="flex items-center space-x-2">
+            <button onclick="openTemplateManager('bikes')" class="px-3 py-2 bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 rounded-xl text-xs font-semibold shadow-xs transition-all flex items-center space-x-1.5">
+              <i class="ph-bold ph-sliders text-brand-600"></i>
+              <span>Шаблоны моделей</span>
+            </button>
             <button onclick="openModal('addBikeModal')" class="px-3.5 py-2 bg-brand-600 hover:bg-brand-700 text-white rounded-xl text-xs font-semibold shadow-sm transition-all flex items-center space-x-1.5">
               <i class="ph-bold ph-plus"></i>
               <span>Добавить байк</span>
@@ -357,10 +361,16 @@
             <h1 class="text-2xl font-bold text-slate-900 tracking-tight">Наличие аккумуляторов (АКБ)</h1>
             <p class="text-xs sm:text-sm text-slate-500">Учет характеристик, номеров батарей и их привязки к технике</p>
           </div>
-          <button onclick="openModal('addBatteryModal')" class="px-3.5 py-2 bg-brand-600 hover:bg-brand-700 text-white rounded-xl text-xs font-semibold shadow-sm transition-all flex items-center space-x-1.5">
-            <i class="ph-bold ph-plus"></i>
-            <span>Добавить АКБ</span>
-          </button>
+          <div class="flex items-center space-x-2">
+            <button onclick="openTemplateManager('batteries')" class="px-3 py-2 bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 rounded-xl text-xs font-semibold shadow-xs transition-all flex items-center space-x-1.5">
+              <i class="ph-bold ph-sliders text-brand-600"></i>
+              <span>Шаблоны АКБ</span>
+            </button>
+            <button onclick="openModal('addBatteryModal')" class="px-3.5 py-2 bg-brand-600 hover:bg-brand-700 text-white rounded-xl text-xs font-semibold shadow-sm transition-all flex items-center space-x-1.5">
+              <i class="ph-bold ph-plus"></i>
+              <span>Добавить АКБ</span>
+            </button>
+          </div>
         </div>
 
         <!-- Batteries Filter Pills -->
@@ -737,7 +747,7 @@
         <div>
           <div class="flex justify-between items-center mb-1">
             <label class="font-semibold text-slate-700">Модель электровелосипеда</label>
-            <button type="button" onclick="promptNewBikeModel()" class="text-brand-600 font-semibold hover:underline text-[11px]">+ Свой шаблон</button>
+            <button type="button" onclick="openTemplateManager('bikes')" class="text-brand-600 font-semibold hover:underline text-[11px] flex items-center space-x-1"><i class="ph-bold ph-sliders"></i><span>Управление шаблонами</span></button>
           </div>
           <select id="newBikeModelSelect" required class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl outline-none">
             <!-- Populated dynamically via JS -->
@@ -788,7 +798,7 @@
         <div>
           <div class="flex justify-between items-center mb-1">
             <label class="font-semibold text-slate-700">Модель</label>
-            <button type="button" onclick="promptNewBikeModel()" class="text-brand-600 font-semibold hover:underline text-[11px]">+ Свой шаблон</button>
+            <button type="button" onclick="openTemplateManager('bikes')" class="text-brand-600 font-semibold hover:underline text-[11px] flex items-center space-x-1"><i class="ph-bold ph-sliders"></i><span>Управление шаблонами</span></button>
           </div>
           <select id="editBikeModelSelect" required class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl outline-none">
             <!-- Populated via JS -->
@@ -824,6 +834,10 @@
           <input type="text" id="editBikeCondition" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl outline-none">
         </div>
         <div class="pt-2 flex items-center space-x-2">
+          <button type="button" onclick="deleteBike(document.getElementById('editBikeId').value)" class="py-2.5 px-3 bg-rose-50 hover:bg-rose-100 text-rose-700 rounded-xl font-semibold flex items-center space-x-1 transition-all" title="Удалить велосипед">
+            <i class="ph-bold ph-trash text-sm"></i>
+            <span>Удалить</span>
+          </button>
           <button type="button" onclick="closeModal('editBikeModal')" class="flex-1 py-2.5 bg-slate-100 text-slate-700 rounded-xl font-semibold">Отмена</button>
           <button type="submit" class="flex-1 py-2.5 bg-brand-600 text-white rounded-xl font-semibold shadow-md shadow-brand-600/30">Сохранить</button>
         </div>
@@ -845,7 +859,7 @@
         <div>
           <div class="flex justify-between items-center mb-1">
             <label class="font-semibold text-slate-700">Характеристика / Емкость АКБ</label>
-            <button type="button" onclick="promptNewBatteryType()" class="text-brand-600 font-semibold hover:underline text-[11px]">+ Свой шаблон</button>
+            <button type="button" onclick="openTemplateManager('batteries')" class="text-brand-600 font-semibold hover:underline text-[11px] flex items-center space-x-1"><i class="ph-bold ph-sliders"></i><span>Управление шаблонами</span></button>
           </div>
           <select id="newBatTypeSelect" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl outline-none">
             <!-- Populated via JS -->
@@ -881,7 +895,7 @@
         <div>
           <div class="flex justify-between items-center mb-1">
             <label class="font-semibold text-slate-700">Характеристика / Емкость</label>
-            <button type="button" onclick="promptNewBatteryType()" class="text-brand-600 font-semibold hover:underline text-[11px]">+ Свой шаблон</button>
+            <button type="button" onclick="openTemplateManager('batteries')" class="text-brand-600 font-semibold hover:underline text-[11px] flex items-center space-x-1"><i class="ph-bold ph-sliders"></i><span>Управление шаблонами</span></button>
           </div>
           <select id="editBatTypeSelect" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl outline-none">
             <!-- Populated via JS -->
@@ -900,6 +914,10 @@
           <input type="text" id="editBatNotes" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl outline-none">
         </div>
         <div class="pt-2 flex items-center space-x-2">
+          <button type="button" onclick="deleteBattery(document.getElementById('editBatteryId').value)" class="py-2.5 px-3 bg-rose-50 hover:bg-rose-100 text-rose-700 rounded-xl font-semibold flex items-center space-x-1 transition-all" title="Удалить АКБ">
+            <i class="ph-bold ph-trash text-sm"></i>
+            <span>Удалить</span>
+          </button>
           <button type="button" onclick="closeModal('editBatteryModal')" class="flex-1 py-2.5 bg-slate-100 text-slate-700 rounded-xl font-semibold">Отмена</button>
           <button type="submit" class="flex-1 py-2.5 bg-brand-600 text-white rounded-xl font-semibold shadow-md shadow-brand-600/30">Сохранить</button>
         </div>
@@ -933,6 +951,16 @@
         <div>
           <label class="block font-semibold text-slate-700 mb-1">Первоначальный залог (₽)</label>
           <input type="number" id="newCourierDeposit" value="5000" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl outline-none">
+        </div>
+        <div>
+          <label class="block font-semibold text-slate-700 mb-1">Рейтинг надежности</label>
+          <select id="newCourierRating" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl outline-none font-semibold">
+            <option value="5" selected>5 ⭐</option>
+            <option value="4">4 ⭐</option>
+            <option value="3">3 ⭐</option>
+            <option value="2">2 ⭐</option>
+            <option value="1">1 ⭐</option>
+          </select>
         </div>
         <div>
           <label class="block font-semibold text-slate-700 mb-1">Заметки / Примечание</label>
@@ -984,14 +1012,13 @@
           </div>
         </div>
         <div>
-          <label class="block font-semibold text-slate-700 mb-1">Рейтинг надежности (⭐ от 1.0 до 5.0)</label>
+          <label class="block font-semibold text-slate-700 mb-1">Рейтинг надежности</label>
           <select id="editCourierRating" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl outline-none font-semibold">
-            <option value="5.0">5.0 ⭐ (Идеальный, бережет технику)</option>
-            <option value="4.8">4.8 ⭐ (Надежный)</option>
-            <option value="4.0">4.0 ⭐ (Бывают мелкие задержки)</option>
-            <option value="3.2">3.2 ⭐ (На контроле / Должник)</option>
-            <option value="2.0">2.0 ⭐ (Проблемный)</option>
-            <option value="1.0">1.0 ⭐ (Черный список)</option>
+            <option value="5">5 ⭐</option>
+            <option value="4">4 ⭐</option>
+            <option value="3">3 ⭐</option>
+            <option value="2">2 ⭐</option>
+            <option value="1">1 ⭐</option>
           </select>
         </div>
         <div>
@@ -999,10 +1026,75 @@
           <textarea id="editCourierNotes" rows="2" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl outline-none"></textarea>
         </div>
         <div class="pt-2 flex items-center space-x-2">
+          <button type="button" onclick="deleteCourier(document.getElementById('editCourierId').value)" class="py-2.5 px-3 bg-rose-50 hover:bg-rose-100 text-rose-700 rounded-xl font-semibold flex items-center space-x-1 transition-all" title="Удалить курьера">
+            <i class="ph-bold ph-trash text-sm"></i>
+            <span>Удалить</span>
+          </button>
           <button type="button" onclick="closeModal('editCourierModal')" class="flex-1 py-2.5 bg-slate-100 text-slate-700 rounded-xl font-semibold">Отмена</button>
           <button type="submit" class="flex-1 py-2.5 bg-brand-600 text-white rounded-xl font-semibold shadow-md shadow-brand-600/30">Сохранить</button>
         </div>
       </form>
+    </div>
+  </div>
+
+  
+  <!-- 12. TEMPLATE MANAGER MODAL (Управление шаблонами) -->
+  <div id="templateManagerModal" class="modal-backdrop hidden fixed inset-0 bg-slate-900/50 backdrop-blur-xs z-50 flex items-center justify-center p-4">
+    <div class="bg-white rounded-3xl max-w-md w-full p-6 shadow-2xl">
+      <div class="flex items-center justify-between pb-4 border-b border-slate-100">
+        <div>
+          <h3 class="font-bold text-slate-900 text-base">Управление шаблонами</h3>
+          <p class="text-xs text-slate-400">Добавление и удаление моделей и типов АКБ</p>
+        </div>
+        <button onclick="closeModal('templateManagerModal')" class="w-8 h-8 rounded-full bg-slate-100 text-slate-400 hover:text-slate-700 flex items-center justify-center">
+          <i class="ph-bold ph-x"></i>
+        </button>
+      </div>
+
+      <!-- Tab Switcher -->
+      <div class="flex items-center space-x-2 mt-4 p-1 bg-slate-100 rounded-2xl">
+        <button type="button" id="tmplTabBikesBtn" onclick="switchTemplateManagerTab('bikes')" class="flex-1 py-2 text-xs font-bold rounded-xl bg-white text-slate-900 shadow-xs transition-all">Модели байков</button>
+        <button type="button" id="tmplTabBatsBtn" onclick="switchTemplateManagerTab('batteries')" class="flex-1 py-2 text-xs font-bold rounded-xl text-slate-500 hover:text-slate-900 transition-all">Типы АКБ</button>
+      </div>
+
+      <!-- Add New Template Field -->
+      <div class="mt-4 flex items-center space-x-2">
+        <input type="text" id="tmplInput" placeholder="Название новой модели..." class="flex-1 px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs outline-none">
+        <button type="button" onclick="handleAddTemplateFromManager()" class="px-4 py-2 bg-brand-600 hover:bg-brand-700 text-white font-semibold rounded-xl text-xs shadow-sm transition-all flex items-center space-x-1 flex-shrink-0">
+          <i class="ph-bold ph-plus"></i>
+          <span>Добавить</span>
+        </button>
+      </div>
+
+      <!-- Template List Container -->
+      <div class="mt-4">
+        <div class="text-[11px] font-semibold text-slate-400 uppercase tracking-wider mb-1.5" id="tmplListTitle">Текущие модели в списке:</div>
+        <div id="tmplListContainer" class="max-h-56 overflow-y-auto space-y-1.5 pr-1 text-xs">
+          <!-- Populated via JS -->
+        </div>
+      </div>
+
+      <div class="mt-5 pt-3 border-t border-slate-100 flex justify-end">
+        <button type="button" onclick="closeModal('templateManagerModal')" class="py-2.5 px-6 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-xs font-semibold shadow-md transition-all">
+          Готово
+        </button>
+      </div>
+    </div>
+  </div>
+
+
+  <!-- 13. CONFIRM DELETE MODAL (Надежное удаление без блокировок браузера) -->
+  <div id="confirmDeleteModal" class="modal-backdrop hidden fixed inset-0 bg-slate-900/60 backdrop-blur-xs z-50 flex items-center justify-center p-4">
+    <div class="bg-white rounded-3xl max-w-sm w-full p-6 shadow-2xl text-center">
+      <div class="w-12 h-12 rounded-2xl bg-rose-100 text-rose-600 flex items-center justify-center mx-auto mb-3 text-2xl font-bold">
+        <i class="ph-bold ph-trash"></i>
+      </div>
+      <h3 class="font-bold text-slate-900 text-base" id="confirmDeleteTitle">Подтвердите удаление</h3>
+      <p class="text-xs text-slate-500 mt-1.5 leading-relaxed" id="confirmDeleteMessage">Это действие нельзя будет отменить.</p>
+      <div class="pt-5 flex items-center space-x-2">
+        <button type="button" onclick="closeConfirmDelete()" class="flex-1 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-semibold">Отмена</button>
+        <button type="button" id="confirmDeleteSubmitBtn" class="flex-1 py-2.5 bg-rose-600 hover:bg-rose-700 text-white rounded-xl text-xs font-semibold shadow-md shadow-rose-600/30">Удалить</button>
+      </div>
     </div>
   </div>
 

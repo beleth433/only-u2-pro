@@ -4,24 +4,44 @@ const fs = require('fs');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
-const DATA_FILE = path.join(__dirname, 'data.json');
+
+const IS_VERCEL = Boolean(process.env.VERCEL);
+const DATA_FILE = IS_VERCEL ? path.join('/tmp', 'data.json') : path.join(__dirname, 'data.json');
+const SEED_FILE = path.join(__dirname, 'seed.json');
 
 app.use(express.json());
 app.use(express.static(path.join(__dirname, 'public')));
 
+let inMemoryData = null;
+
 // Helper to read data
 function loadData() {
+  if (inMemoryData) return inMemoryData;
   try {
+    if (IS_VERCEL && !fs.existsSync(DATA_FILE)) {
+      if (fs.existsSync(SEED_FILE)) {
+        fs.copyFileSync(SEED_FILE, DATA_FILE);
+      }
+    }
     const raw = fs.readFileSync(DATA_FILE, 'utf8');
-    return JSON.parse(raw);
+    inMemoryData = JSON.parse(raw);
+    return inMemoryData;
   } catch (err) {
     console.error('Error reading data file:', err);
+    if (fs.existsSync(SEED_FILE)) {
+      try {
+        const seedRaw = fs.readFileSync(SEED_FILE, 'utf8');
+        inMemoryData = JSON.parse(seedRaw);
+        return inMemoryData;
+      } catch (e) {}
+    }
     return { settings: {}, bikes: [], batteries: [], couriers: [], history: [] };
   }
 }
 
 // Helper to save data
 function saveData(data) {
+  inMemoryData = data;
   try {
     fs.writeFileSync(DATA_FILE, JSON.stringify(data, null, 2), 'utf8');
   } catch (err) {
@@ -97,6 +117,17 @@ app.post('/api/templates/bike-models', (req, res) => {
   res.json({ success: true, templates: data.settings.templates });
 });
 
+app.delete('/api/templates/bike-models/:name', (req, res) => {
+  const data = loadData();
+  if (!data.settings.templates) {
+    data.settings.templates = { bikeModels: [], batteryTypes: [] };
+  }
+  const name = decodeURIComponent(req.params.name).trim();
+  data.settings.templates.bikeModels = (data.settings.templates.bikeModels || []).filter(m => m !== name);
+  saveData(data);
+  res.json({ success: true, templates: data.settings.templates });
+});
+
 app.post('/api/templates/battery-types', (req, res) => {
   const data = loadData();
   if (!data.settings.templates) {
@@ -110,6 +141,17 @@ app.post('/api/templates/battery-types', (req, res) => {
   res.json({ success: true, templates: data.settings.templates });
 });
 
+app.delete('/api/templates/battery-types/:name', (req, res) => {
+  const data = loadData();
+  if (!data.settings.templates) {
+    data.settings.templates = { bikeModels: [], batteryTypes: [] };
+  }
+  const name = decodeURIComponent(req.params.name).trim();
+  data.settings.templates.batteryTypes = (data.settings.templates.batteryTypes || []).filter(t => t !== name);
+  saveData(data);
+  res.json({ success: true, templates: data.settings.templates });
+});
+
 // 2. Bikes
 app.get('/api/bikes', (req, res) => {
   const data = loadData();
@@ -119,14 +161,20 @@ app.get('/api/bikes', (req, res) => {
 app.post('/api/bikes', (req, res) => {
   const data = loadData();
   const { model, frameNumber, batteryId, mileageKm, condition } = req.body;
-  const newId = `MB-${100 + data.bikes.length + 1}`;
+  
+  // Safe max-based ID generation to prevent duplicates
+  const maxBikeNum = data.bikes.reduce((max, b) => {
+    const match = b.id && b.id.match(/\d+/);
+    return match ? Math.max(max, parseInt(match[0], 10)) : max;
+  }, 100);
+  const newId = `MB-${maxBikeNum + 1}`;
   
   const bikeModel = model ? model.trim() : 'Only U2 Pro';
 
   const newBike = {
     id: newId,
     model: bikeModel,
-    frameNumber: frameNumber || `U2-${Math.floor(10000 + Math.random() * 90000)}`,
+    frameNumber: frameNumber ? frameNumber.trim() : `U2-${Math.floor(10000 + Math.random() * 90000)}`,
     mileageKm: Number(mileageKm) || 0,
     status: 'available',
     batteryId: batteryId || null,
@@ -254,7 +302,13 @@ app.get('/api/batteries', (req, res) => {
 app.post('/api/batteries', (req, res) => {
   const data = loadData();
   const { type, notes } = req.body;
-  const newId = `BAT-${String(data.batteries.length + 1).padStart(2, '0')}`;
+  
+  // Safe max-based ID generation
+  const maxBatNum = data.batteries.reduce((max, b) => {
+    const match = b.id && b.id.match(/\d+/);
+    return match ? Math.max(max, parseInt(match[0], 10)) : max;
+  }, 0);
+  const newId = `BAT-${String(maxBatNum + 1).padStart(2, '0')}`;
 
   const batType = type ? type.trim() : '60V 21Ah';
 
@@ -329,19 +383,27 @@ app.get('/api/couriers', (req, res) => {
 
 app.post('/api/couriers', (req, res) => {
   const data = loadData();
-  const { fullName, phone, passportNumber, deposit, notes } = req.body;
-  const newId = `C-0${data.couriers.length + 1}`;
+  const { fullName, phone, passportNumber, deposit, notes, rating } = req.body;
+  
+  // Safe max-based ID generation
+  const maxCourierNum = data.couriers.reduce((max, c) => {
+    const match = c.id && c.id.match(/\d+/);
+    return match ? Math.max(max, parseInt(match[0], 10)) : max;
+  }, 0);
+  const newId = `C-${String(maxCourierNum + 1).padStart(2, '0')}`;
+
+  const cleanRating = rating ? Math.min(5, Math.max(1, parseInt(rating, 10) || 5)) : 5;
 
   const newCourier = {
     id: newId,
     fullName: fullName ? fullName.trim() : 'Курьер',
-    phone: phone || '',
-    passportNumber: passportNumber || 'Не указан',
+    phone: phone ? phone.trim() : '',
+    passportNumber: passportNumber ? passportNumber.trim() : 'Не указан',
     status: 'waiting',
     balance: 0,
     debt: 0,
     deposit: Number(deposit) || 5000,
-    rating: 5.0,
+    rating: cleanRating,
     activeBikeId: null,
     notes: notes || 'Новый курьер'
   };
@@ -371,8 +433,8 @@ app.patch('/api/couriers/:id', (req, res) => {
     }
   }
   if (rating !== undefined) {
-    const r = parseFloat(rating);
-    courier.rating = isNaN(r) ? 5.0 : Math.min(5.0, Math.max(1.0, r));
+    const r = parseInt(rating, 10);
+    courier.rating = isNaN(r) ? 5 : Math.min(5, Math.max(1, r));
   }
   if (notes !== undefined) courier.notes = notes;
 
@@ -387,12 +449,13 @@ app.delete('/api/couriers/:id', (req, res) => {
 
   const courier = data.couriers[courierIndex];
 
-  // If courier had an active bike, release the bike to warehouse
+  // If courier was renting a bike, release bike
   if (courier.activeBikeId) {
     const bike = data.bikes.find(b => b.id === courier.activeBikeId);
     if (bike) {
       bike.status = 'available';
       bike.currentCourierId = null;
+      bike.location = 'Склад';
       bike.rentalStart = null;
       bike.rentalEnd = null;
     }
@@ -403,47 +466,50 @@ app.delete('/api/couriers/:id', (req, res) => {
   res.json({ success: true, message: `Курьер ${courier.fullName} успешно удален` });
 });
 
-// Reset database to initial seed data
+// Database reset
 app.post('/api/reset', (req, res) => {
-  const seedFile = path.join(__dirname, 'seed.json');
   try {
-    const seed = fs.readFileSync(seedFile, 'utf8');
-    fs.writeFileSync(DATA_FILE, seed, 'utf8');
+    const rawSeed = fs.readFileSync(SEED_FILE, 'utf8');
+    const seedData = JSON.parse(rawSeed);
+    inMemoryData = seedData;
+    saveData(seedData);
     res.json({ success: true, message: 'Данные успешно сброшены к начальному состоянию!' });
   } catch (err) {
     res.status(500).json({ error: 'Не удалось сбросить данные' });
   }
 });
 
-// 5. Rental Checkout (Выдача)
+// 5. Rental Operations: Checkout (Выдача)
 app.post('/api/rentals/checkout', (req, res) => {
   const data = loadData();
   const { courierId, bikeId, batteryId, days, depositPaid, rateAmount } = req.body;
 
-  const courier = data.couriers.find(c => c.id === courierId);
   const bike = data.bikes.find(b => b.id === bikeId);
-  const battery = data.batteries.find(b => b.id === batteryId);
-
-  if (!courier || !bike) {
-    return res.status(400).json({ error: 'Курьер или велосипед не найдены' });
-  }
+  const courier = data.couriers.find(c => c.id === courierId);
+  if (!bike || !courier) return res.status(404).json({ error: 'Байк или курьер не найдены' });
 
   const startDate = new Date();
   const endDate = new Date();
   endDate.setDate(startDate.getDate() + (Number(days) || 7));
 
+  const startStr = startDate.toISOString().split('T')[0];
+  const endStr = endDate.toISOString().split('T')[0];
+
   // Update bike
   bike.status = 'in_rent';
   bike.currentCourierId = courier.id;
-  bike.rentalStart = startDate.toISOString().split('T')[0];
-  bike.rentalEnd = endDate.toISOString().split('T')[0];
-  if (batteryId) bike.batteryId = batteryId;
+  bike.rentalStart = startStr;
+  bike.rentalEnd = endStr;
+  bike.location = 'На линии';
 
-  // Update battery
-  if (battery) {
-    battery.status = 'in_use';
-    battery.assignedBike = bike.id;
-    battery.notes = `Выдан к байку #${bike.id} (${courier.fullName})`;
+  // Attach battery
+  if (batteryId) {
+    bike.batteryId = batteryId;
+    const bat = data.batteries.find(b => b.id === batteryId);
+    if (bat) {
+      bat.status = 'in_use';
+      bat.assignedBike = bike.id;
+    }
   }
 
   // Update courier
@@ -451,52 +517,68 @@ app.post('/api/rentals/checkout', (req, res) => {
   courier.status = 'active';
   if (depositPaid) courier.deposit = (courier.deposit || 0) + Number(depositPaid);
 
+  // History log
   data.history.unshift({
     id: `H-${Date.now()}`,
     timestamp: new Date().toISOString().replace('T', ' ').substring(0, 16),
     type: 'checkout',
     courierName: courier.fullName,
+    bikeId: bike.id,
+    batteryId: bike.batteryId,
     amount: Number(rateAmount) || 3500,
-    description: `Выдача ${bike.model} (#${bike.id}) с АКБ #${batteryId || '—'} на ${days || 7} дн.`
+    description: `Оформлена аренда байка #${bike.id} на ${days || 7} дн.`
   });
 
   saveData(data);
-  res.json({ success: true, message: 'Велосипед успешно выдан' });
+  res.json({ success: true, bike, courier });
 });
 
-// 6. Rental Checkin (Возврат)
+// 6. Rental Operations: Checkin (Возврат)
 app.post('/api/rentals/checkin', (req, res) => {
   const data = loadData();
-  const { bikeId, courierId, conditionNote, returnDeposit } = req.body;
+  const { bikeId, conditionNote, returnDeposit } = req.body;
 
   const bike = data.bikes.find(b => b.id === bikeId);
-  const courier = data.couriers.find(c => c.id === (courierId || bike?.currentCourierId));
-
   if (!bike) return res.status(404).json({ error: 'Байк не найден' });
 
-  // Update bike
+  const courier = data.couriers.find(c => c.id === bike.currentCourierId);
+
+  // Free bike
   bike.status = 'available';
+  bike.location = 'Склад';
   bike.currentCourierId = null;
   bike.rentalStart = null;
   bike.rentalEnd = null;
   if (conditionNote) bike.condition = conditionNote;
 
+  // Free battery
+  if (bike.batteryId) {
+    const bat = data.batteries.find(b => b.id === bike.batteryId);
+    if (bat) {
+      bat.status = 'available';
+      bat.assignedBike = null;
+      bat.notes = 'На складе (после возврата)';
+    }
+  }
+
   // Update courier
   if (courier) {
     courier.activeBikeId = null;
-    courier.status = 'waiting';
+    courier.status = courier.debt > 0 ? 'debtor' : 'waiting';
     if (returnDeposit && courier.deposit > 0) {
       courier.deposit = 0;
     }
   }
 
+  // History log
   data.history.unshift({
     id: `H-${Date.now()}`,
     timestamp: new Date().toISOString().replace('T', ' ').substring(0, 16),
     type: 'checkin',
-    courierName: courier ? courier.fullName : 'Курьер',
+    courierName: courier ? courier.fullName : 'Неизвестный курьер',
+    bikeId: bike.id,
     amount: 0,
-    description: `Приемка байка #${bike.id}. Состояние: ${conditionNote || 'В норме'}`
+    description: `Прием байка #${bike.id} на склад. ${conditionNote || ''}`
   });
 
   saveData(data);
@@ -516,7 +598,7 @@ app.post('/api/payments', (req, res) => {
     const paidDebt = Math.min(courier.debt, sum);
     courier.debt -= paidDebt;
     if (courier.debt === 0 && courier.status === 'debtor') {
-      courier.status = 'active';
+      courier.status = courier.activeBikeId ? 'active' : 'waiting';
     }
   }
 

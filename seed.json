@@ -100,7 +100,7 @@
       "balance": 0,
       "debt": 0,
       "deposit": 5000,
-      "rating": 5.0,
+      "rating": 5,
       "activeBikeId": "MB-101",
       "notes": "Надежный курьер, бережет технику."
     },
@@ -113,7 +113,7 @@
       "balance": 500,
       "debt": 0,
       "deposit": 5000,
-      "rating": 4.9,
+      "rating": 5,
       "activeBikeId": "MB-102",
       "notes": "Постоянный клиент, аккуратная езда."
     },
@@ -126,7 +126,7 @@
       "balance": -1200,
       "debt": 1200,
       "deposit": 5000,
-      "rating": 3.2,
+      "rating": 3,
       "activeBikeId": null,
       "notes": "Задержка оплаты аренды. Обещал оплатить сегодня."
     }

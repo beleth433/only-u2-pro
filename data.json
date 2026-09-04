@@ -84,11 +84,46 @@
     }
   ],
   "batteries": [
-    { "id": "BAT-01", "model": "Li-ion 60V 21Ah", "type": "60V 21Ah", "status": "in_use", "assignedBike": "MB-101", "notes": "Выдан к байку #MB-101" },
-    { "id": "BAT-02", "model": "Li-ion 60V 30Ah Увеличенная", "type": "60V 30Ah Увеличенная", "status": "in_use", "assignedBike": "MB-102", "notes": "Выдан к байку #MB-102" },
-    { "id": "BAT-03", "model": "Li-ion 60V 21Ah", "type": "60V 21Ah", "status": "in_use", "assignedBike": "MB-103", "notes": "Установлен на байк #MB-103" },
-    { "id": "BAT-04", "model": "Li-ion 60V 30Ah Увеличенная", "type": "60V 30Ah Увеличенная", "status": "available", "assignedBike": null, "notes": "На складе, свободен к выдаче" },
-    { "id": "BAT-05", "model": "Li-ion 48V 18Ah", "type": "48V 18Ah", "status": "available", "assignedBike": null, "notes": "На складе, свободен" }
+    {
+      "id": "BAT-01",
+      "model": "Li-ion 60V 21Ah",
+      "type": "60V 21Ah",
+      "status": "in_use",
+      "assignedBike": "MB-101",
+      "notes": "Выдан к байку #MB-101"
+    },
+    {
+      "id": "BAT-02",
+      "model": "Li-ion 60V 30Ah Увеличенная",
+      "type": "60V 30Ah Увеличенная",
+      "status": "in_use",
+      "assignedBike": "MB-102",
+      "notes": "Выдан к байку #MB-102"
+    },
+    {
+      "id": "BAT-03",
+      "model": "Li-ion 60V 21Ah",
+      "type": "60V 21Ah",
+      "status": "in_use",
+      "assignedBike": "MB-103",
+      "notes": "Установлен на байк #MB-103"
+    },
+    {
+      "id": "BAT-04",
+      "model": "Li-ion 60V 30Ah Увеличенная",
+      "type": "60V 30Ah Увеличенная",
+      "status": "available",
+      "assignedBike": null,
+      "notes": "На складе, свободен к выдаче"
+    },
+    {
+      "id": "BAT-05",
+      "model": "Li-ion 48V 18Ah",
+      "type": "48V 18Ah",
+      "status": "available",
+      "assignedBike": null,
+      "notes": "На складе, свободен"
+    }
   ],
   "couriers": [
     {
@@ -100,7 +135,7 @@
       "balance": 0,
       "debt": 0,
       "deposit": 5000,
-      "rating": 5.0,
+      "rating": 5,
       "activeBikeId": "MB-101",
       "notes": "Надежный курьер, бережет технику."
     },
@@ -113,7 +148,7 @@
       "balance": 500,
       "debt": 0,
       "deposit": 5000,
-      "rating": 4.9,
+      "rating": 5,
       "activeBikeId": "MB-102",
       "notes": "Постоянный клиент, аккуратная езда."
     },
@@ -126,7 +161,7 @@
       "balance": -1200,
       "debt": 1200,
       "deposit": 5000,
-      "rating": 3.2,
+      "rating": 3,
       "activeBikeId": null,
       "notes": "Задержка оплаты аренды. Обещал оплатить сегодня."
     }
