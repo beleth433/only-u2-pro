@@ -341,10 +341,14 @@ app.get('/api/history', (req, res) => {
   res.json(data.history || []);
 });
 
-// Start server
-app.listen(PORT, () => {
-  console.log(`=========================================`);
-  console.log(`🚀 Only U2 Pro CRM is running!`);
-  console.log(`📍 Web URL: http://localhost:${PORT}`);
-  console.log(`=========================================`);
-});
+// Start server if run directly
+if (require.main === module) {
+  app.listen(PORT, () => {
+    console.log(`=========================================`);
+    console.log(`🚀 Only U2 Pro CRM is running!`);
+    console.log(`📍 Web URL: http://localhost:${PORT}`);
+    console.log(`=========================================`);
+  });
+}
+
+module.exports = app;
