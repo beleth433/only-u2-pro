@@ -289,7 +289,12 @@ function renderFleet() {
               <span class="font-mono font-bold text-xs bg-slate-100 text-slate-700 px-2 py-0.5 rounded-md">#${bike.id}</span>
               <span class="text-[11px] text-slate-400 font-mono">${bike.voltage}</span>
             </div>
-            ${statusBadge}
+            <div class="flex items-center space-x-1.5">
+              ${statusBadge}
+              <button onclick="deleteBike('${bike.id}')" class="p-1 text-slate-300 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-all" title="Удалить байк из парка">
+                <i class="ph-bold ph-trash text-sm"></i>
+              </button>
+            </div>
           </div>
 
           <!-- Model & Specs -->
@@ -399,9 +404,14 @@ function renderBatteries() {
         <div>
           <div class="flex items-center justify-between">
             <span class="font-mono font-bold text-sm text-slate-800">#${bat.id}</span>
-            <span class="px-2 py-0.5 rounded-full text-[10px] font-bold border ${isAvailable ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : 'bg-blue-50 text-blue-700 border-blue-200'}">
-              ${isAvailable ? 'Свободен (на складе)' : `На байке #${bat.assignedBike || '—'}`}
-            </span>
+            <div class="flex items-center space-x-1.5">
+              <span class="px-2 py-0.5 rounded-full text-[10px] font-bold border ${isAvailable ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : 'bg-blue-50 text-blue-700 border-blue-200'}">
+                ${isAvailable ? 'Свободен (на складе)' : `На байке #${bat.assignedBike || '—'}`}
+              </span>
+              <button onclick="deleteBattery('${bat.id}')" class="p-1 text-slate-300 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-all" title="Удалить АКБ">
+                <i class="ph-bold ph-trash text-sm"></i>
+              </button>
+            </div>
           </div>
 
           <div class="mt-3">
@@ -459,10 +469,15 @@ function renderCouriers() {
               </div>
             </div>
 
-            <!-- Rating -->
-            <div class="flex items-center space-x-1 text-xs font-bold text-amber-500">
-              <i class="ph-fill ph-star"></i>
-              <span>${c.rating}</span>
+            <!-- Rating & Delete -->
+            <div class="flex items-center space-x-2">
+              <div class="flex items-center space-x-1 text-xs font-bold text-amber-500">
+                <i class="ph-fill ph-star"></i>
+                <span>${c.rating}</span>
+              </div>
+              <button onclick="deleteCourier('${c.id}')" class="p-1 text-slate-300 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-all" title="Удалить курьера">
+                <i class="ph-bold ph-trash text-sm"></i>
+              </button>
             </div>
           </div>
 
@@ -796,6 +811,65 @@ async function markReadyFromService(bikeId) {
   });
   showToast(`Байк #${bikeId} готов к выдаче!`, 'success');
   fetchAllData();
+}
+
+async function deleteBike(bikeId) {
+  if (!confirm(`Вы действительно хотите удалить электровелосипед #${bikeId} из парка?`)) return;
+  try {
+    const res = await fetch(`/api/bikes/${bikeId}`, { method: 'DELETE' });
+    const result = await res.json();
+    if (result.success) {
+      showToast(`Байк #${bikeId} успешно удален!`, 'info');
+      fetchAllData();
+    }
+  } catch (err) {
+    showToast('Ошибка при удалении байка', 'error');
+  }
+}
+
+async function deleteBattery(batId) {
+  if (!confirm(`Удалить аккумулятор #${batId} из реестра?`)) return;
+  try {
+    const res = await fetch(`/api/batteries/${batId}`, { method: 'DELETE' });
+    const result = await res.json();
+    if (result.success) {
+      showToast(`АКБ #${batId} успешно удалена!`, 'info');
+      fetchAllData();
+    }
+  } catch (err) {
+    showToast('Ошибка при удалении АКБ', 'error');
+  }
+}
+
+async function deleteCourier(courierId) {
+  const courier = state.couriers.find(c => c.id === courierId);
+  const name = courier ? courier.fullName : courierId;
+  if (!confirm(`Удалить карточку курьера "${name}"? Если за ним числился байк, он вернется на склад.`)) return;
+  try {
+    const res = await fetch(`/api/couriers/${courierId}`, { method: 'DELETE' });
+    const result = await res.json();
+    if (result.success) {
+      showToast(`Курьер ${name} удален`, 'info');
+      fetchAllData();
+    }
+  } catch (err) {
+    showToast('Ошибка при удалении курьера', 'error');
+  }
+}
+
+async function resetDemoData() {
+  if (!confirm('Сбросить все данные к исходным демонстрационным? Это восстановит начальный парк, курьеров и батареи.')) return;
+  try {
+    const res = await fetch('/api/reset', { method: 'POST' });
+    const result = await res.json();
+    if (result.success) {
+      showToast('База данных успешно сброшена к начальным демо-данным!', 'success');
+      closeModal('authModal');
+      fetchAllData();
+    }
+  } catch (err) {
+    showToast('Ошибка при сбросе данных', 'error');
+  }
 }
 
 function prepareCheckoutForBike(bikeId) {

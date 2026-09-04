@@ -1,0 +1,335 @@
+{
+  "settings": {
+    "appName": "Only U2 Pro",
+    "companyName": "Only U2 Pro Fleet",
+    "currency": "₽",
+    "allowedTelegramIds": [
+      778899001,
+      123456789
+    ],
+    "defaultDeposit": 5000,
+    "rates": {
+      "day": 700,
+      "week": 3500,
+      "month": 12000
+    }
+  },
+  "bikes": [
+    {
+      "id": "MB-101",
+      "model": "Minako Monster V8 Pro",
+      "frameNumber": "MNK-88910-V8",
+      "voltage": "60V",
+      "mileageKm": 4210,
+      "status": "in_rent",
+      "batteryId": "BAT-01",
+      "currentCourierId": "C-01",
+      "rentalStart": "2026-08-28",
+      "rentalEnd": "2026-09-05",
+      "condition": "Хорошее",
+      "location": "На линии"
+    },
+    {
+      "id": "MB-102",
+      "model": "Minako Monster Max",
+      "frameNumber": "MNK-94022-MAX",
+      "voltage": "60V",
+      "mileageKm": 2850,
+      "status": "in_rent",
+      "batteryId": "BAT-02",
+      "currentCourierId": "C-02",
+      "rentalStart": "2026-09-01",
+      "rentalEnd": "2026-09-08",
+      "condition": "Отличное",
+      "location": "На линии"
+    },
+    {
+      "id": "MB-103",
+      "model": "Jetson V8 Pro Курьер",
+      "frameNumber": "JTS-11044-PRO",
+      "voltage": "60V",
+      "mileageKm": 1120,
+      "status": "available",
+      "batteryId": "BAT-05",
+      "currentCourierId": null,
+      "rentalStart": null,
+      "rentalEnd": null,
+      "condition": "Новый (готов к выдаче)",
+      "location": "Склад (Бокс 3)"
+    },
+    {
+      "id": "MB-104",
+      "model": "Minako Monster V8 Pro",
+      "frameNumber": "MNK-77190-V8",
+      "voltage": "60V",
+      "mileageKm": 6150,
+      "status": "service",
+      "batteryId": null,
+      "currentCourierId": null,
+      "rentalStart": null,
+      "rentalEnd": null,
+      "condition": "Замена тормозных колодок и камеры",
+      "location": "Мастерская"
+    },
+    {
+      "id": "MB-105",
+      "model": "Kugoo Kirin V1 Pro",
+      "frameNumber": "KUG-43201-V1",
+      "voltage": "48V",
+      "mileageKm": 3400,
+      "status": "in_rent",
+      "batteryId": "BAT-07",
+      "currentCourierId": "C-03",
+      "rentalStart": "2026-08-30",
+      "rentalEnd": "2026-09-06",
+      "condition": "Хорошее",
+      "location": "На линии"
+    },
+    {
+      "id": "MB-106",
+      "model": "Minako Monster V8",
+      "frameNumber": "MNK-99812-V8",
+      "voltage": "60V",
+      "mileageKm": 890,
+      "status": "available",
+      "batteryId": "BAT-09",
+      "currentCourierId": null,
+      "rentalStart": null,
+      "rentalEnd": null,
+      "condition": "Отличное, готов к выдаче",
+      "location": "Склад (Бокс 1)"
+    },
+    {
+      "id": "MB-107",
+      "model": "Monster Black Edition",
+      "frameNumber": "MNK-66120-BLK",
+      "voltage": "60V",
+      "mileageKm": 5100,
+      "status": "in_rent",
+      "batteryId": "BAT-11",
+      "currentCourierId": "C-04",
+      "rentalStart": "2026-08-25",
+      "rentalEnd": "2026-09-01",
+      "condition": "Удовлетворительное",
+      "location": "На линии - Просрочка!"
+    },
+    {
+      "id": "MB-108",
+      "model": "Jetson F20",
+      "frameNumber": "JTS-44211-F20",
+      "voltage": "48V",
+      "mileageKm": 650,
+      "status": "available",
+      "batteryId": "BAT-12",
+      "currentCourierId": null,
+      "rentalStart": null,
+      "rentalEnd": null,
+      "condition": "Новый",
+      "location": "Склад (Бокс 2)"
+    }
+  ],
+  "batteries": [
+    {
+      "id": "BAT-01",
+      "model": "Li-ion 60V 21Ah",
+      "type": "60V 21Ah",
+      "status": "in_use",
+      "assignedBike": "MB-101",
+      "notes": "Выдан к байку #MB-101"
+    },
+    {
+      "id": "BAT-02",
+      "model": "Li-ion 60V 30Ah Увеличенная",
+      "type": "60V 30Ah",
+      "status": "in_use",
+      "assignedBike": "MB-102",
+      "notes": "Выдан к байку #MB-102"
+    },
+    {
+      "id": "BAT-03",
+      "model": "Li-ion 60V 21Ah",
+      "type": "60V 21Ah",
+      "status": "available",
+      "assignedBike": null,
+      "notes": "На складе, свободен к выдаче"
+    },
+    {
+      "id": "BAT-04",
+      "model": "Li-ion 60V 30Ah Увеличенная",
+      "type": "60V 30Ah",
+      "status": "available",
+      "assignedBike": null,
+      "notes": "На складе, свободен к выдаче"
+    },
+    {
+      "id": "BAT-05",
+      "model": "Li-ion 60V 21Ah",
+      "type": "60V 21Ah",
+      "status": "in_use",
+      "assignedBike": "MB-103",
+      "notes": "Установлен на байк #MB-103"
+    },
+    {
+      "id": "BAT-06",
+      "model": "Li-ion 60V 21Ah",
+      "type": "60V 21Ah",
+      "status": "available",
+      "assignedBike": null,
+      "notes": "На складе, свободен"
+    },
+    {
+      "id": "BAT-07",
+      "model": "Li-ion 48V 18Ah",
+      "type": "48V 18Ah",
+      "status": "in_use",
+      "assignedBike": "MB-105",
+      "notes": "Выдан к байку #MB-105"
+    },
+    {
+      "id": "BAT-08",
+      "model": "Li-ion 60V 30Ah",
+      "type": "60V 30Ah",
+      "status": "available",
+      "assignedBike": null,
+      "notes": "На складе, свободен"
+    },
+    {
+      "id": "BAT-09",
+      "model": "Li-ion 60V 21Ah",
+      "type": "60V 21Ah",
+      "status": "in_use",
+      "assignedBike": "MB-106",
+      "notes": "Установлен на байк #MB-106"
+    },
+    {
+      "id": "BAT-10",
+      "model": "Li-ion 60V 30Ah Увеличенная",
+      "type": "60V 30Ah",
+      "status": "available",
+      "assignedBike": null,
+      "notes": "На складе, свободен"
+    },
+    {
+      "id": "BAT-11",
+      "model": "Li-ion 60V 21Ah",
+      "type": "60V 21Ah",
+      "status": "in_use",
+      "assignedBike": "MB-107",
+      "notes": "Выдан к байку #MB-107"
+    },
+    {
+      "id": "BAT-12",
+      "model": "Li-ion 48V 18Ah",
+      "type": "48V 18Ah",
+      "status": "in_use",
+      "assignedBike": "MB-108",
+      "notes": "Установлен на байк #MB-108"
+    },
+    {
+      "id": "BAT-13",
+      "model": "Li-ion 60V 21Ah",
+      "type": "60V 21Ah",
+      "status": "available",
+      "assignedBike": null,
+      "notes": "12"
+    }
+  ],
+  "couriers": [
+    {
+      "id": "C-01",
+      "fullName": "Алишер Рахимов",
+      "phone": "+7 (999) 123-45-67",
+      "deliveryService": "Яндекс Еда",
+      "passportNumber": "4518 ***219",
+      "status": "active",
+      "balance": 0,
+      "debt": 0,
+      "deposit": 5000,
+      "rating": 5,
+      "activeBikeId": "MB-101",
+      "notes": "Надежный курьер, бережет технику. Арендует 3 месяца подряд."
+    },
+    {
+      "id": "C-02",
+      "fullName": "Мухаммад Юсупов",
+      "phone": "+7 (925) 333-88-11",
+      "deliveryService": "Купер (СберМаркет)",
+      "passportNumber": "4519 ***843",
+      "status": "active",
+      "balance": 500,
+      "debt": 0,
+      "deposit": 5000,
+      "rating": 4.9,
+      "activeBikeId": "MB-102",
+      "notes": "Постоянный клиент, аккуратная езда."
+    },
+    {
+      "id": "C-03",
+      "fullName": "Даниил Сергеев",
+      "phone": "+7 (916) 555-22-44",
+      "deliveryService": "Самокат",
+      "passportNumber": "4520 ***771",
+      "status": "active",
+      "balance": 0,
+      "debt": 0,
+      "deposit": 4000,
+      "rating": 4.8,
+      "activeBikeId": "MB-105",
+      "notes": "Внес залог 4000 ₽ частями."
+    },
+    {
+      "id": "C-04",
+      "fullName": "Бахром Каримов",
+      "phone": "+7 (903) 777-12-34",
+      "deliveryService": "Яндекс Доставка",
+      "passportNumber": "4516 ***490",
+      "status": "debtor",
+      "balance": -1200,
+      "debt": 1200,
+      "deposit": 5000,
+      "rating": 3.2,
+      "activeBikeId": "MB-107",
+      "notes": "Внимание! Просрочка платежа 3 дня. Обещал оплатить сегодня вечером."
+    },
+    {
+      "id": "C-05",
+      "fullName": "Нурсултан Осмонов",
+      "phone": "+7 (985) 444-99-00",
+      "deliveryService": "Достависта",
+      "passportNumber": "4522 ***105",
+      "status": "waiting",
+      "balance": 0,
+      "debt": 0,
+      "deposit": 0,
+      "rating": 4.7,
+      "activeBikeId": null,
+      "notes": "Оставил заявку на аренду Minako V8 с понедельника."
+    }
+  ],
+  "history": [
+    {
+      "id": "H-101",
+      "timestamp": "2026-09-04 14:20",
+      "type": "payment",
+      "courierName": "Мухаммад Юсупов",
+      "amount": 4000,
+      "description": "Оплата аренды на 7 дней (наличные)"
+    },
+    {
+      "id": "H-102",
+      "timestamp": "2026-09-03 11:15",
+      "type": "checkout",
+      "courierName": "Мухаммад Юсупов",
+      "amount": 3500,
+      "description": "Выдача байка #MB-102 с аккумулятором BAT-02 (60V 30Ah)"
+    },
+    {
+      "id": "H-103",
+      "timestamp": "2026-09-02 18:40",
+      "type": "service",
+      "courierName": "Сервисный центр",
+      "amount": -850,
+      "description": "Замена камеры и протяжка спиц на байке #MB-104"
+    }
+  ]
+}

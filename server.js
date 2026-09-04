@@ -127,6 +127,37 @@ app.patch('/api/bikes/:id/status', (req, res) => {
   res.json({ success: true, bike });
 });
 
+app.delete('/api/bikes/:id', (req, res) => {
+  const data = loadData();
+  const bikeIndex = data.bikes.findIndex(b => b.id === req.params.id);
+  if (bikeIndex === -1) return res.status(404).json({ error: 'Bike not found' });
+
+  const bike = data.bikes[bikeIndex];
+
+  // If bike had assigned battery, release it
+  if (bike.batteryId) {
+    const bat = data.batteries.find(b => b.id === bike.batteryId);
+    if (bat) {
+      bat.status = 'available';
+      bat.assignedBike = null;
+      bat.notes = 'На складе, свободен';
+    }
+  }
+
+  // If courier was renting this bike, unassign
+  if (bike.currentCourierId) {
+    const courier = data.couriers.find(c => c.id === bike.currentCourierId);
+    if (courier) {
+      courier.activeBikeId = null;
+      courier.status = 'waiting';
+    }
+  }
+
+  data.bikes.splice(bikeIndex, 1);
+  saveData(data);
+  res.json({ success: true, message: `Байк #${req.params.id} успешно удален` });
+});
+
 // 3. Batteries (Inventory)
 app.get('/api/batteries', (req, res) => {
   const data = loadData();
@@ -150,6 +181,26 @@ app.post('/api/batteries', (req, res) => {
   data.batteries.push(newBat);
   saveData(data);
   res.json({ success: true, battery: newBat });
+});
+
+app.delete('/api/batteries/:id', (req, res) => {
+  const data = loadData();
+  const batIndex = data.batteries.findIndex(b => b.id === req.params.id);
+  if (batIndex === -1) return res.status(404).json({ error: 'Battery not found' });
+
+  const bat = data.batteries[batIndex];
+
+  // If assigned to a bike, release from bike
+  if (bat.assignedBike) {
+    const bike = data.bikes.find(b => b.id === bat.assignedBike);
+    if (bike) {
+      bike.batteryId = null;
+    }
+  }
+
+  data.batteries.splice(batIndex, 1);
+  saveData(data);
+  res.json({ success: true, message: `АКБ #${req.params.id} успешно удалена` });
 });
 
 // 4. Couriers
@@ -181,6 +232,41 @@ app.post('/api/couriers', (req, res) => {
   data.couriers.push(newCourier);
   saveData(data);
   res.json({ success: true, courier: newCourier });
+});
+
+app.delete('/api/couriers/:id', (req, res) => {
+  const data = loadData();
+  const courierIndex = data.couriers.findIndex(c => c.id === req.params.id);
+  if (courierIndex === -1) return res.status(404).json({ error: 'Courier not found' });
+
+  const courier = data.couriers[courierIndex];
+
+  // If courier had an active bike, release the bike to warehouse
+  if (courier.activeBikeId) {
+    const bike = data.bikes.find(b => b.id === courier.activeBikeId);
+    if (bike) {
+      bike.status = 'available';
+      bike.currentCourierId = null;
+      bike.rentalStart = null;
+      bike.rentalEnd = null;
+    }
+  }
+
+  data.couriers.splice(courierIndex, 1);
+  saveData(data);
+  res.json({ success: true, message: `Курьер ${courier.fullName} успешно удален` });
+});
+
+// Reset database to initial seed data
+app.post('/api/reset', (req, res) => {
+  const seedFile = path.join(__dirname, 'seed.json');
+  try {
+    const seed = fs.readFileSync(seedFile, 'utf8');
+    fs.writeFileSync(DATA_FILE, seed, 'utf8');
+    res.json({ success: true, message: 'Данные успешно сброшены к начальному состоянию!' });
+  } catch (err) {
+    res.status(500).json({ error: 'Не удалось сбросить данные' });
+  }
 });
 
 // 5. Rental Checkout (Выдача)
