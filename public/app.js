@@ -206,7 +206,7 @@ function switchTab(tabId, updateHash = true) {
 }
 
 function updateBadges() {
-  // 1. Fleet: Free/available (blue), In rent (emerald), In service (amber)
+  // 1. Fleet: Free/available (emerald), In rent (blue), In service (amber)
   const fleetContainer = document.getElementById('badgesFleetContainer');
   if (fleetContainer) {
     const availBikes = state.bikes.filter(b => b.status === 'available').length;
@@ -215,10 +215,10 @@ function updateBadges() {
 
     let html = '';
     if (availBikes > 0) {
-      html += `<span class="text-xs px-1.5 py-0.5 rounded-md font-bold bg-blue-50 text-blue-700 border border-blue-200/80" title="Свободно: ${availBikes}">${availBikes}</span>`;
+      html += `<span class="text-xs px-1.5 py-0.5 rounded-md font-bold bg-emerald-50 text-emerald-700 border border-emerald-200/80" title="Свободно на складе: ${availBikes}">${availBikes}</span>`;
     }
     if (inRentBikes > 0) {
-      html += `<span class="text-xs px-1.5 py-0.5 rounded-md font-bold bg-emerald-50 text-emerald-700 border border-emerald-200/80" title="В аренде: ${inRentBikes}">${inRentBikes}</span>`;
+      html += `<span class="text-xs px-1.5 py-0.5 rounded-md font-bold bg-blue-50 text-blue-700 border border-blue-200/80" title="В аренде: ${inRentBikes}">${inRentBikes}</span>`;
     }
     if (serviceBikes > 0) {
       html += `<span class="text-xs px-1.5 py-0.5 rounded-md font-bold bg-amber-50 text-amber-700 border border-amber-200/80" title="В ремонте: ${serviceBikes}">${serviceBikes}</span>`;
@@ -237,7 +237,7 @@ function updateBadges() {
       html += `<span class="text-xs px-1.5 py-0.5 rounded-md font-bold bg-emerald-50 text-emerald-700 border border-emerald-200/80" title="Свободно на складе: ${availBats}">${availBats}</span>`;
     }
     if (inUseBats > 0) {
-      html += `<span class="text-xs px-1.5 py-0.5 rounded-md font-bold bg-blue-50 text-blue-700 border border-blue-200/80" title="В аренде: ${inUseBats}">${inUseBats}</span>`;
+      html += `<span class="text-xs px-1.5 py-0.5 rounded-md font-bold bg-blue-50 text-blue-700 border border-blue-200/80" title="В аренде (выдано): ${inUseBats}">${inUseBats}</span>`;
     }
     batContainer.innerHTML = html;
   }
@@ -660,9 +660,9 @@ function renderFleet() {
 
     let statusBadge = '';
     if (bike.status === 'in_rent') {
-      statusBadge = `<span class="px-2.5 py-1 rounded-full text-[11px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">В аренде</span>`;
+      statusBadge = `<span class="px-2.5 py-1 rounded-full text-[11px] font-bold bg-blue-50 text-blue-700 border border-blue-200">В аренде</span>`;
     } else if (bike.status === 'available') {
-      statusBadge = `<span class="px-2.5 py-1 rounded-full text-[11px] font-bold bg-blue-50 text-blue-700 border border-blue-200">Свободен</span>`;
+      statusBadge = `<span class="px-2.5 py-1 rounded-full text-[11px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">Свободен</span>`;
     } else {
       statusBadge = `<span class="px-2.5 py-1 rounded-full text-[11px] font-bold bg-amber-50 text-amber-700 border border-amber-200">На ремонте/ТО</span>`;
     }
@@ -711,8 +711,8 @@ function renderFleet() {
           <!-- Courier / Location -->
           <div class="mt-3 text-xs">
             ${bike.status === 'in_rent' && courier ? `
-              <div class="flex items-center space-x-2 p-2 rounded-xl bg-emerald-50/50 border border-emerald-100">
-                <i class="ph-bold ph-user text-emerald-700 text-sm"></i>
+              <div class="flex items-center space-x-2 p-2 rounded-xl bg-blue-50/50 border border-blue-100">
+                <i class="ph-bold ph-user text-blue-700 text-sm"></i>
                 <div class="overflow-hidden">
                   <div class="font-bold text-slate-900 truncate">${courier.fullName}</div>
                   <div class="text-[10px] text-slate-500">до ${bike.rentalEnd || '—'} • ${courier.phone}</div>
