@@ -15,11 +15,9 @@
     },
     "templates": {
       "bikeModels": [
-        "Only U2 Pro",
-        "Minako Monster V8",
-        "Minako Monster Max",
-        "Jetson V8 Pro",
-        "Kugoo Kirin V1 Pro"
+        "U2 Wenbox",
+        "U2 amiko",
+        "liming"
       ],
       "batteryTypes": [
         "60V 21Ah",
@@ -32,55 +30,16 @@
   "bikes": [
     {
       "id": "MB-101",
-      "model": "Only U2 Pro",
-      "frameNumber": "U2-88910-PRO",
-      "mileageKm": 4210,
-      "status": "in_rent",
-      "batteryId": "BAT-01",
-      "currentCourierId": "C-01",
-      "rentalStart": "2026-08-28",
-      "rentalEnd": "2026-09-05",
-      "condition": "Хорошее",
-      "location": "На линии"
-    },
-    {
-      "id": "MB-102",
-      "model": "Minako Monster Max",
-      "frameNumber": "MNK-94022-MAX",
-      "mileageKm": 2850,
-      "status": "in_rent",
-      "batteryId": "BAT-02",
-      "currentCourierId": "C-02",
-      "rentalStart": "2026-09-01",
-      "rentalEnd": "2026-09-08",
-      "condition": "Отличное",
-      "location": "На линии"
-    },
-    {
-      "id": "MB-103",
-      "model": "Jetson V8 Pro",
-      "frameNumber": "JTS-11044-PRO",
-      "mileageKm": 1120,
+      "model": "liming",
+      "frameNumber": "234234",
+      "mileageKm": 0,
       "status": "available",
-      "batteryId": "BAT-03",
+      "batteryId": "BAT-01",
       "currentCourierId": null,
       "rentalStart": null,
       "rentalEnd": null,
-      "condition": "Новый (готов к выдаче)",
+      "condition": "Отличное (готов к выдаче)",
       "location": "Склад"
-    },
-    {
-      "id": "MB-104",
-      "model": "Only U2 Pro",
-      "frameNumber": "U2-77190-V8",
-      "mileageKm": 6150,
-      "status": "service",
-      "batteryId": null,
-      "currentCourierId": null,
-      "rentalStart": null,
-      "rentalEnd": null,
-      "condition": "Замена тормозных колодок и камеры",
-      "location": "Мастерская"
     }
   ],
   "batteries": [
@@ -90,80 +49,22 @@
       "type": "60V 21Ah",
       "status": "in_use",
       "assignedBike": "MB-101",
-      "notes": "Выдан к байку #MB-101"
-    },
-    {
-      "id": "BAT-02",
-      "model": "Li-ion 60V 30Ah Увеличенная",
-      "type": "60V 30Ah Увеличенная",
-      "status": "in_use",
-      "assignedBike": "MB-102",
-      "notes": "Выдан к байку #MB-102"
-    },
-    {
-      "id": "BAT-03",
-      "model": "Li-ion 60V 21Ah",
-      "type": "60V 21Ah",
-      "status": "in_use",
-      "assignedBike": "MB-103",
-      "notes": "Установлен на байк #MB-103"
-    },
-    {
-      "id": "BAT-04",
-      "model": "Li-ion 60V 30Ah Увеличенная",
-      "type": "60V 30Ah Увеличенная",
-      "status": "available",
-      "assignedBike": null,
-      "notes": "На складе, свободен к выдаче"
-    },
-    {
-      "id": "BAT-05",
-      "model": "Li-ion 48V 18Ah",
-      "type": "48V 18Ah",
-      "status": "available",
-      "assignedBike": null,
       "notes": "На складе, свободен"
     }
   ],
   "couriers": [
     {
       "id": "C-01",
-      "fullName": "Алишер Рахимов",
-      "phone": "+7 (999) 123-45-67",
-      "passportNumber": "4518 ***219",
-      "status": "active",
+      "fullName": "иван иванов",
+      "phone": "35353434",
+      "passportNumber": "3433535",
+      "status": "waiting",
       "balance": 0,
       "debt": 0,
       "deposit": 5000,
-      "rating": 5,
-      "activeBikeId": "MB-101",
-      "notes": "Надежный курьер, бережет технику."
-    },
-    {
-      "id": "C-02",
-      "fullName": "Мухаммад Юсупов",
-      "phone": "+7 (925) 333-88-11",
-      "passportNumber": "4519 ***843",
-      "status": "active",
-      "balance": 500,
-      "debt": 0,
-      "deposit": 5000,
-      "rating": 5,
-      "activeBikeId": "MB-102",
-      "notes": "Постоянный клиент, аккуратная езда."
-    },
-    {
-      "id": "C-03",
-      "fullName": "Бахром Каримов",
-      "phone": "+7 (903) 777-12-34",
-      "passportNumber": "4516 ***490",
-      "status": "debtor",
-      "balance": -1200,
-      "debt": 1200,
-      "deposit": 5000,
       "rating": 3,
       "activeBikeId": null,
-      "notes": "Задержка оплаты аренды. Обещал оплатить сегодня."
+      "notes": "Новый курьер"
     }
   ],
   "history": [

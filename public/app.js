@@ -36,6 +36,7 @@ let pendingDeleteCallback = null;
 
 // Initialize Application
 document.addEventListener('DOMContentLoaded', () => {
+  initTestTimeSimulator();
   setupDate();
   initDatabase();
   setupEventListeners();
@@ -60,9 +61,121 @@ document.addEventListener('DOMContentLoaded', () => {
   });
 });
 
+// =============================================================
+// TIME SIMULATOR ENGINE (ДЛЯ ТЕСТОВ — ЛЕГКО УДАЛИТЬ)
+// =============================================================
+const TIME_OFFSET_STORAGE_KEY = 'crm_test_time_offset_ms';
+const TIME_BAR_COLLAPSED_KEY = 'crm_test_time_bar_collapsed';
+let testTimeOffsetMs = Number(localStorage.getItem(TIME_OFFSET_STORAGE_KEY)) || 0;
+
+function getCurrentDate() {
+  return new Date(Date.now() + testTimeOffsetMs);
+}
+
+function shiftTimeDays(days) {
+  testTimeOffsetMs += days * 24 * 60 * 60 * 1000;
+  localStorage.setItem(TIME_OFFSET_STORAGE_KEY, testTimeOffsetMs);
+  applySimulatedTimeChange();
+  showToast(days > 0 ? `Время переведено вперед на ${days} дн.` : `Время переведено назад на ${Math.abs(days)} дн.`, 'info');
+}
+
+function handleTimePickerChange(val) {
+  if (!val) return;
+  const pickedDate = new Date(val);
+  if (isNaN(pickedDate.getTime())) return;
+  testTimeOffsetMs = pickedDate.getTime() - Date.now();
+  localStorage.setItem(TIME_OFFSET_STORAGE_KEY, testTimeOffsetMs);
+  applySimulatedTimeChange();
+  showToast('Установлено выбранное время', 'info');
+}
+
+function resetSimulatedTime() {
+  testTimeOffsetMs = 0;
+  localStorage.removeItem(TIME_OFFSET_STORAGE_KEY);
+  applySimulatedTimeChange();
+  showToast('Время сброшено к реальному текущему', 'success');
+}
+
+function toggleTimeBarCollapse() {
+  const bar = document.getElementById('testTimeBar');
+  const btn = document.getElementById('testTimeFloatingBtn');
+  if (!bar || !btn) return;
+
+  const isCollapsed = bar.classList.contains('hidden');
+  if (isCollapsed) {
+    bar.classList.remove('hidden');
+    btn.classList.add('hidden');
+    localStorage.removeItem(TIME_BAR_COLLAPSED_KEY);
+  } else {
+    bar.classList.add('hidden');
+    btn.classList.remove('hidden');
+    localStorage.setItem(TIME_BAR_COLLAPSED_KEY, '1');
+  }
+}
+
+function updateTestTimeBarDisplay() {
+  const now = getCurrentDate();
+  const displayEl = document.getElementById('testTimeDisplay');
+  const miniEl = document.getElementById('testTimeMiniDisplay');
+  const pickerEl = document.getElementById('testTimePicker');
+  const badgeEl = document.getElementById('testTimeOffsetBadge');
+
+  const pad = n => String(n).padStart(2, '0');
+  const d = pad(now.getDate());
+  const m = pad(now.getMonth() + 1);
+  const y = now.getFullYear();
+  const hh = pad(now.getHours());
+  const mm = pad(now.getMinutes());
+
+  const formattedStr = `${d}.${m}.${y} ${hh}:${mm}`;
+  if (displayEl) displayEl.innerText = formattedStr;
+  if (miniEl) miniEl.innerText = `${d}.${m}.${y}`;
+
+  if (pickerEl && document.activeElement !== pickerEl) {
+    pickerEl.value = `${y}-${m}-${d}T${hh}:${mm}`;
+  }
+
+  if (badgeEl) {
+    const diffDays = Math.round(testTimeOffsetMs / (1000 * 60 * 60 * 24));
+    if (Math.abs(testTimeOffsetMs) < 60000) {
+      badgeEl.innerText = 'Реальное время';
+      badgeEl.className = 'text-[11px] px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 font-semibold border border-emerald-500/30';
+    } else if (diffDays !== 0) {
+      const sign = diffDays > 0 ? '+' : '';
+      badgeEl.innerText = `${sign}${diffDays} дн. (${diffDays > 0 ? 'в будущее' : 'в прошлое'})`;
+      badgeEl.className = 'text-[11px] px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-300 font-semibold border border-amber-500/30';
+    } else {
+      badgeEl.innerText = 'Смещение времени';
+      badgeEl.className = 'text-[11px] px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-300 font-semibold border border-amber-500/30';
+    }
+  }
+}
+
+function applySimulatedTimeChange() {
+  updateTestTimeBarDisplay();
+  setupDate();
+  updateBadges();
+  renderCurrentTab();
+}
+
+function initTestTimeSimulator() {
+  if (localStorage.getItem(TIME_BAR_COLLAPSED_KEY) === '1') {
+    const bar = document.getElementById('testTimeBar');
+    const btn = document.getElementById('testTimeFloatingBtn');
+    if (bar) bar.classList.add('hidden');
+    if (btn) btn.classList.remove('hidden');
+  }
+
+  updateTestTimeBarDisplay();
+  setInterval(updateTestTimeBarDisplay, 1000);
+}
+// =============================================================
+// END TIME SIMULATOR ENGINE
+// =============================================================
+
 function setupDate() {
   const options = { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' };
-  const today = new Date().toLocaleDateString('ru-RU', options);
+  const today = getCurrentDate().toLocaleDateString('ru-RU', options);
   const el = document.getElementById('currentDateString');
   if (el) el.innerText = today.charAt(0).toUpperCase() + today.slice(1);
 }
@@ -245,10 +358,11 @@ function updateBadges() {
   // 3. Couriers: Active couriers in rent (blue), Overdue debtors (rose)
   const courierContainer = document.getElementById('badgesCouriersContainer');
   if (courierContainer) {
-    const activeCouriers = state.couriers.filter(c => {
-      return Boolean(c.activeBikeId) || state.bikes.some(b => b.currentCourierId === c.id && b.status === 'in_rent');
+    const todayStr = getCurrentDate().toISOString().split('T')[0];
+    const overdueCount = state.couriers.filter(c => {
+      if ((c.debt || 0) > 0) return true;
+      return state.bikes.some(b => b.currentCourierId === c.id && b.status === 'in_rent' && b.rentalEnd && b.rentalEnd < todayStr);
     }).length;
-    const overdueCount = state.couriers.filter(c => (c.debt || 0) > 0).length;
 
     let html = '';
     if (activeCouriers > 0) {
@@ -465,12 +579,20 @@ function closeConfirmDelete() {
 // 1. DASHBOARD RENDER
 // -------------------------------------------------------------
 function renderDashboard() {
+  const today = getCurrentDate();
+  const todayStr = today.toISOString().split('T')[0];
+
   const inRentCount = state.bikes.filter(b => b.status === 'in_rent').length;
   const availableBikesCount = state.bikes.filter(b => b.status === 'available').length;
   const readyBatsCount = state.batteries.filter(b => b.status === 'available').length;
   const inUseBatsCount = state.batteries.filter(b => b.status === 'in_use').length;
-  const debtors = state.couriers.filter(c => c.debt > 0);
-  const totalDebt = debtors.reduce((acc, c) => acc + (c.debt || 0), 0);
+
+  // Overdue couriers: either direct debt > 0 OR has active bike with rentalEnd < todayStr
+  const overdueCouriers = state.couriers.filter(c => {
+    if ((c.debt || 0) > 0) return true;
+    return state.bikes.some(b => b.currentCourierId === c.id && b.status === 'in_rent' && b.rentalEnd && b.rentalEnd < todayStr);
+  });
+  const totalDebt = state.couriers.reduce((acc, c) => acc + (c.debt || 0), 0);
 
   // KPI counters
   const kpiInRentEl = document.getElementById('kpiInRent');
@@ -493,17 +615,22 @@ function renderDashboard() {
   if (kpiTotalDebtEl) kpiTotalDebtEl.innerText = `${totalDebt.toLocaleString()} ₽`;
 
   const kpiDebtorsCountEl = document.getElementById('kpiDebtorsCount');
-  if (kpiDebtorsCountEl) kpiDebtorsCountEl.innerText = `${debtors.length} должн.`;
+  if (kpiDebtorsCountEl) kpiDebtorsCountEl.innerText = `${overdueCouriers.length} должн.`;
 
   const kpiWeeklyRevEl = document.getElementById('kpiWeeklyRevenue');
   if (kpiWeeklyRevEl) kpiWeeklyRevEl.innerText = `${(inRentCount * 3500).toLocaleString()} ₽`;
 
-  // Dynamic Attention Alert for Real Debtors
+  // Dynamic Attention Alert for Real Debtors and Expired Rentals
   const alertContainer = document.getElementById('dashboardAlertContainer');
   if (alertContainer) {
-    if (debtors.length > 0) {
+    if (overdueCouriers.length > 0) {
       alertContainer.classList.remove('hidden');
-      alertContainer.innerHTML = debtors.map(c => `
+      alertContainer.innerHTML = overdueCouriers.map(c => {
+        const rentedBike = state.bikes.find(b => b.currentCourierId === c.id && b.status === 'in_rent');
+        const isBikeOverdue = rentedBike && rentedBike.rentalEnd && rentedBike.rentalEnd < todayStr;
+        const daysOver = isBikeOverdue ? Math.max(1, Math.ceil((today.getTime() - new Date(rentedBike.rentalEnd + 'T23:59:59').getTime()) / (1000 * 60 * 60 * 24))) : 0;
+
+        return `
         <div class="bg-rose-50 border border-rose-200 rounded-2xl p-4 sm:p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4 shadow-sm">
           <div class="flex items-start space-x-3.5">
             <div class="w-10 h-10 rounded-xl bg-rose-100 text-rose-600 flex items-center justify-center flex-shrink-0 text-xl font-bold">
@@ -511,21 +638,26 @@ function renderDashboard() {
             </div>
             <div>
               <div class="flex items-center space-x-2">
-                <span class="px-2 py-0.5 rounded-md text-[10px] font-bold bg-rose-600 text-white uppercase tracking-wider">Просрочка аренды</span>
-                <span class="text-xs font-mono font-bold text-rose-800">Долг: ${c.debt.toLocaleString()} ₽</span>
+                <span class="px-2 py-0.5 rounded-md text-[10px] font-bold bg-rose-600 text-white uppercase tracking-wider">
+                  ${isBikeOverdue ? `Просрочено на ${daysOver} дн.` : 'Задолженность'}
+                </span>
+                <span class="text-xs font-mono font-bold text-rose-800">
+                  ${c.debt > 0 ? `Долг: ${c.debt.toLocaleString()} ₽` : (isBikeOverdue ? `Срок истек ${rentedBike.rentalEnd}` : '')}
+                </span>
               </div>
               <h4 class="font-bold text-slate-900 text-sm mt-1">${c.fullName}</h4>
-              <p class="text-xs text-slate-500 mt-0.5">Телефон: <a href="tel:${c.phone}" class="text-rose-700 font-semibold underline">${c.phone}</a> • Байк: #${c.activeBikeId || 'Не закреплен'}</p>
+              <p class="text-xs text-slate-500 mt-0.5">Телефон: <a href="tel:${c.phone}" class="text-rose-700 font-semibold underline">${c.phone}</a> • Байк: #${c.activeBikeId || (rentedBike ? rentedBike.id : 'Не закреплен')}</p>
             </div>
           </div>
           <div class="flex items-center space-x-2 sm:self-center">
             <button onclick="preparePaymentForCourier('${c.id}')" class="px-4 py-2 bg-rose-600 hover:bg-rose-700 text-white rounded-xl text-xs font-semibold shadow-sm transition-all flex items-center space-x-1.5">
               <i class="ph-bold ph-money"></i>
-              <span>Принять оплату</span>
+              <span>Принять оплату / Продлить</span>
             </button>
           </div>
         </div>
-      `).join('');
+      `;
+      }).join('');
     } else {
       alertContainer.classList.add('hidden');
       alertContainer.innerHTML = '';
@@ -543,10 +675,21 @@ function renderDashboard() {
     tableBody.innerHTML = activeRentals.map(bike => {
       const courier = state.couriers.find(c => c.id === bike.currentCourierId) || { fullName: 'Курьер', phone: '—', debt: 0 };
       const battery = state.batteries.find(b => b.id === bike.batteryId);
-      const isDebtor = courier.debt > 0;
+      const isExpired = Boolean(bike.rentalEnd && bike.rentalEnd < todayStr);
+      const daysOverdue = isExpired ? Math.max(1, Math.ceil((today.getTime() - new Date(bike.rentalEnd + 'T23:59:59').getTime()) / (1000 * 60 * 60 * 24))) : 0;
+      const isDebtor = (courier.debt || 0) > 0 || isExpired;
+
+      let statusBadge = '';
+      if ((courier.debt || 0) > 0) {
+        statusBadge = `<span class="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-bold bg-rose-50 text-rose-700 border border-rose-200">Долг ${courier.debt.toLocaleString()} ₽</span>`;
+      } else if (isExpired) {
+        statusBadge = `<span class="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-bold bg-rose-50 text-rose-700 border border-rose-200">Просрочено (${daysOverdue} дн.)</span>`;
+      } else {
+        statusBadge = `<span class="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200">Оплачено</span>`;
+      }
 
       return `
-        <tr class="hover:bg-slate-50/80 transition-colors">
+        <tr class="hover:bg-slate-50/80 transition-colors ${isDebtor ? 'bg-rose-50/30' : ''}">
           <td class="px-4 py-3.5">
             <div class="flex items-center space-x-2.5">
               <div class="w-8 h-8 rounded-full bg-slate-100 text-slate-700 font-bold flex items-center justify-center text-xs flex-shrink-0">
@@ -568,13 +711,13 @@ function renderDashboard() {
             </div>
           </td>
           <td class="px-4 py-3.5">
-            <div class="font-medium text-slate-700">до ${bike.rentalEnd || 'Не указан'}</div>
+            <div class="font-medium ${isExpired ? 'text-rose-600 font-bold' : 'text-slate-700'}">
+              до ${bike.rentalEnd || 'Не указан'} ${isExpired ? `<span class="text-[10px] px-1.5 py-0.5 rounded bg-rose-100 text-rose-700 ml-1">-${daysOverdue} дн.</span>` : ''}
+            </div>
             <div class="text-[10px] text-slate-400">с ${bike.rentalStart || '—'}</div>
           </td>
           <td class="px-4 py-3.5">
-            ${isDebtor 
-              ? `<span class="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-bold bg-rose-50 text-rose-700 border border-rose-200">Долг ${courier.debt.toLocaleString()} ₽</span>` 
-              : `<span class="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200">Оплачено</span>`}
+            ${statusBadge}
           </td>
           <td class="px-4 py-3.5 text-right">
             <button onclick="prepareCheckin('${bike.id}')" class="px-3 py-1 bg-white hover:bg-slate-100 text-slate-700 font-semibold border border-slate-200 rounded-lg text-xs transition-all" title="Принять байк на склад">
@@ -712,15 +855,19 @@ function renderFleet() {
 
           <!-- Courier / Location -->
           <div class="mt-3 text-xs">
-            ${bike.status === 'in_rent' && courier ? `
-              <div class="flex items-center space-x-2 p-2 rounded-xl bg-blue-50/50 border border-blue-100">
-                <i class="ph-bold ph-user text-blue-700 text-sm"></i>
+            ${bike.status === 'in_rent' && courier ? (() => {
+              const todayStr = getCurrentDate().toISOString().split('T')[0];
+              const isExpired = Boolean(bike.rentalEnd && bike.rentalEnd < todayStr);
+              return `
+              <div class="flex items-center space-x-2 p-2 rounded-xl ${isExpired ? 'bg-rose-50/80 border border-rose-200' : 'bg-blue-50/50 border border-blue-100'}">
+                <i class="ph-bold ${isExpired ? 'ph-warning-circle text-rose-600' : 'ph-user text-blue-700'} text-sm"></i>
                 <div class="overflow-hidden">
                   <div class="font-bold text-slate-900 truncate">${courier.fullName}</div>
-                  <div class="text-[10px] text-slate-500">до ${bike.rentalEnd || '—'} • ${courier.phone}</div>
+                  <div class="text-[10px] ${isExpired ? 'text-rose-600 font-bold' : 'text-slate-500'}">до ${bike.rentalEnd || '—'} ${isExpired ? '• ПРОСРОЧЕНО' : ''} • ${courier.phone}</div>
                 </div>
               </div>
-            ` : `
+              `;
+            })() : `
               <div class="text-[11px] text-slate-400 flex items-center space-x-1.5">
                 <i class="ph-bold ph-map-pin text-slate-400"></i>
                 <span>${bike.location || 'Склад'}</span>
@@ -1513,8 +1660,8 @@ function handleCheckout(e) {
   const courier = state.couriers.find(c => c.id === courierId);
   if (!bike || !courier) return;
 
-  const startDate = new Date();
-  const endDate = new Date();
+  const startDate = getCurrentDate();
+  const endDate = new Date(startDate.getTime());
   endDate.setDate(startDate.getDate() + days);
 
   const startStr = startDate.toISOString().split('T')[0];
@@ -1538,7 +1685,7 @@ function handleCheckout(e) {
 
   state.history.unshift({
     id: `H-${Date.now()}`,
-    timestamp: new Date().toISOString().replace('T', ' ').substring(0, 16),
+    timestamp: getCurrentDate().toISOString().replace('T', ' ').substring(0, 16),
     type: 'checkout',
     courierName: courier.fullName,
     bikeId: bike.id,
@@ -1604,7 +1751,7 @@ function handleCheckin(e) {
 
   state.history.unshift({
     id: `H-${Date.now()}`,
-    timestamp: new Date().toISOString().replace('T', ' ').substring(0, 16),
+    timestamp: getCurrentDate().toISOString().replace('T', ' ').substring(0, 16),
     type: 'checkin',
     courierName: courier ? courier.fullName : 'Курьер',
     bikeId: bike.id,
@@ -1650,7 +1797,7 @@ function handlePayment(e) {
 
   state.history.unshift({
     id: `H-${Date.now()}`,
-    timestamp: new Date().toISOString().replace('T', ' ').substring(0, 16),
+    timestamp: getCurrentDate().toISOString().replace('T', ' ').substring(0, 16),
     type: 'payment',
     courierName: courier.fullName,
     amount,
