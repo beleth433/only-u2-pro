@@ -359,6 +359,9 @@ function updateBadges() {
   const courierContainer = document.getElementById('badgesCouriersContainer');
   if (courierContainer) {
     const todayStr = getCurrentDate().toISOString().split('T')[0];
+    const activeCouriers = state.couriers.filter(c => {
+      return Boolean(c.activeBikeId) || state.bikes.some(b => b.currentCourierId === c.id && b.status === 'in_rent');
+    }).length;
     const overdueCount = state.couriers.filter(c => {
       if ((c.debt || 0) > 0) return true;
       return state.bikes.some(b => b.currentCourierId === c.id && b.status === 'in_rent' && b.rentalEnd && b.rentalEnd < todayStr);
