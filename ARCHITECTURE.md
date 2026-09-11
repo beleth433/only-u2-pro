@@ -32,6 +32,8 @@ erDiagram
 * `frameNumber` (String): Номер рамы / VIN.
 * `mileageKm` (Number): Пробег в км.
 * `status` (String): Текущий статус — `'available'` (свободен на складе), `'in_rent'` (в аренде на линии), `'service'` (в ремонте/ТО).
+* `dealType` (String|null): Формат сделки — `'rent'` (обычная аренда) или `'buyout'` (под выкуп).
+* `buyoutPrice` (Number|null): Полная стоимость выкупа техники в рублях (активно при `dealType === 'buyout'`).
 * `batteryId` (String|null): Внешний ключ (FK) на привязанный аккумулятор из `state.batteries[].id`.
 * `currentCourierId` (String|null): Внешний ключ (FK) на курьера-арендатора из `state.couriers[].id`.
 * `rentalStart` (String|null): Дата начала аренды в формате `YYYY-MM-DD`.
@@ -76,13 +78,16 @@ erDiagram
 ## 3. МАТРИЦА СВЯЗАННОСТИ И БИЗНЕС-ПРАВИЛА (BUSINESS LOGIC & INVARIANTS)
 
 ### 3.1. Выдача байка курьеру (`handleCheckout`)
-1. **Байк:** `status = 'in_rent'`, `currentCourierId = courier.id`, `rentalStart = today`, `rentalEnd = today + days`, `location = 'На линии'`.
-2. **Батарея:** Если выбрана АКБ — `battery.status = 'in_use'`, `battery.assignedBike = bike.id`.
-3. **Курьер:** `courier.activeBikeId = bike.id`, `courier.status = 'active'`, увеличение `courier.deposit` на сумму залога.
-4. **Сайд-эффекты:** Создание записи в `history`, `saveLocalDatabase()`, `updateBadges()`, `renderCurrentTab()`.
+1. **Формат выдачи (`dealType`):**
+   * **Обычная аренда (`'rent'`):** Срок выбирается из готовых шаблонов (1д, 7д, 14д, 30д) либо вводится вручную через опцию *«Свой срок вручную»*. Вносимый залог зачисляется на депозит курьера.
+   * **Под выкуп (`'buyout'`):** Шаблоны скрываются. Вручную задаются: срок выкупа (в днях), согласованная полная стоимость выкупа (`buyoutPrice`) и первоначальный взнос. Кнопка выдачи переключается в фиолетовый режим «Оформить выкуп».
+2. **Байк:** `status = 'in_rent'`, `dealType = 'rent' | 'buyout'`, `buyoutPrice = price | undefined`, `currentCourierId = courier.id`, `rentalStart = today`, `rentalEnd = today + days`, `location = 'На линии'`.
+3. **Батарея:** Если выбрана АКБ — `battery.status = 'in_use'`, `battery.assignedBike = bike.id`.
+4. **Курьер:** `courier.activeBikeId = bike.id`, `courier.status = 'active'`, увеличение `courier.deposit` на сумму залога/взноса.
+5. **Сайд-эффекты:** Создание записи в `history` («Оформлен выкуп...» или «Оформлена аренда...»), `saveLocalDatabase()`, `updateBadges()`, `renderCurrentTab()`.
 
 ### 3.2. Прием байка на склад (`handleCheckin`)
-1. **Байк:** `status = 'available'`, `currentCourierId = null`, `rentalStart = null`, `rentalEnd = null`, `location = 'Склад'`.
+1. **Байк:** `status = 'available'`, `currentCourierId = null`, `rentalStart = null`, `rentalEnd = null`, `dealType = null`, удаление `buyoutPrice`, `location = 'Склад'`.
 2. **Батарея:** `battery.status = 'available'`, `battery.assignedBike = null`.
 3. **Курьер:** `courier.activeBikeId = null`, `courier.status = (courier.debt > 0 ? 'debtor' : 'waiting')`. Опциональный возврат залога (обнуление `courier.deposit`).
 4. **Сайд-эффекты:** Запись в `history`, `saveLocalDatabase()`, `updateBadges()`, `renderCurrentTab()`.
@@ -118,6 +123,11 @@ erDiagram
   * 1-я плашка Курьеров (активные курьеры, катающиеся прямо сейчас).
   * Блок курьера на карточке байка.
   * Виджет «Байков на линии» на дашборде.
+* 🟣 **Фиолетовый (`purple`):** **ДОГОВОР ПОД ВЫКУП (RENT-TO-OWN)**.
+  * Бейдж «🤝 Под выкуп» на карточке байка в Велопарке.
+  * Бейдж «Выкуп» в таблице активных аренд на Дашборде рядом с названием модели.
+  * Метка «Выкуп» в карточке курьера рядом с привязанным байком.
+  * Стиль активного режима и кнопка подтверждения «Оформить выкуп» в модалке выдачи.
 * 🟠 **Оранжевый / Янтарный (`amber`):** **СЕРВИС / РЕМОНТ / ТО**.
   * 3-я плашка Велопарка (байки на ТО).
   * Бейдж «На ремонте/ТО» на карточке байка.

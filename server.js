@@ -482,7 +482,7 @@ app.post('/api/reset', (req, res) => {
 // 5. Rental Operations: Checkout (Выдача)
 app.post('/api/rentals/checkout', (req, res) => {
   const data = loadData();
-  const { courierId, bikeId, batteryId, days, depositPaid, rateAmount } = req.body;
+  const { courierId, bikeId, batteryId, days, depositPaid, rateAmount, dealType, buyoutPrice } = req.body;
 
   const bike = data.bikes.find(b => b.id === bikeId);
   const courier = data.couriers.find(c => c.id === courierId);
@@ -497,6 +497,12 @@ app.post('/api/rentals/checkout', (req, res) => {
 
   // Update bike
   bike.status = 'in_rent';
+  bike.dealType = dealType || 'rent';
+  if (dealType === 'buyout') {
+    bike.buyoutPrice = Number(buyoutPrice) || 0;
+  } else {
+    delete bike.buyoutPrice;
+  }
   bike.currentCourierId = courier.id;
   bike.rentalStart = startStr;
   bike.rentalEnd = endStr;
@@ -518,6 +524,10 @@ app.post('/api/rentals/checkout', (req, res) => {
   if (depositPaid) courier.deposit = (courier.deposit || 0) + Number(depositPaid);
 
   // History log
+  const desc = dealType === 'buyout'
+    ? `Оформлен выкуп байка #${bike.id} (${bike.model}) на ${days || 90} дн.`
+    : `Оформлена аренда байка #${bike.id} на ${days || 7} дн.`;
+
   data.history.unshift({
     id: `H-${Date.now()}`,
     timestamp: new Date().toISOString().replace('T', ' ').substring(0, 16),
@@ -525,8 +535,8 @@ app.post('/api/rentals/checkout', (req, res) => {
     courierName: courier.fullName,
     bikeId: bike.id,
     batteryId: bike.batteryId,
-    amount: Number(rateAmount) || 3500,
-    description: `Оформлена аренда байка #${bike.id} на ${days || 7} дн.`
+    amount: dealType === 'buyout' ? Number(depositPaid || 0) : (Number(rateAmount) || 3500),
+    description: desc
   });
 
   saveData(data);
@@ -549,6 +559,8 @@ app.post('/api/rentals/checkin', (req, res) => {
   bike.currentCourierId = null;
   bike.rentalStart = null;
   bike.rentalEnd = null;
+  bike.dealType = null;
+  delete bike.buyoutPrice;
   if (conditionNote) bike.condition = conditionNote;
 
   // Free battery

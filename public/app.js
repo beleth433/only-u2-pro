@@ -707,7 +707,10 @@ function renderDashboard() {
             </div>
           </td>
           <td class="px-4 py-3.5">
-            <div class="font-medium text-slate-800">${bike.model} <span class="font-mono text-xs font-semibold text-slate-500">#${bike.id}</span></div>
+            <div class="flex items-center space-x-2">
+              <span class="font-medium text-slate-800">${bike.model} <span class="font-mono text-xs font-semibold text-slate-500">#${bike.id}</span></span>
+              ${bike.dealType === 'buyout' ? `<span class="px-1.5 py-0.5 rounded text-[10px] font-bold bg-purple-100 text-purple-700 border border-purple-200">Выкуп</span>` : `<span class="px-1.5 py-0.5 rounded text-[10px] font-medium bg-slate-100 text-slate-600">Аренда</span>`}
+            </div>
             <div class="text-[11px] text-slate-500 flex items-center space-x-1 mt-0.5">
               <i class="ph-bold ph-battery-high text-brand-600"></i>
               <span>АКБ: <strong>#${bike.batteryId || '—'}</strong> (${battery ? battery.type : '—'})</span>
@@ -808,7 +811,11 @@ function renderFleet() {
 
     let statusBadge = '';
     if (bike.status === 'in_rent') {
-      statusBadge = `<span class="px-2.5 py-1 rounded-full text-[11px] font-bold bg-blue-50 text-blue-700 border border-blue-200">В аренде</span>`;
+      if (bike.dealType === 'buyout') {
+        statusBadge = `<span class="px-2.5 py-1 rounded-full text-[11px] font-bold bg-purple-50 text-purple-700 border border-purple-200">🤝 Под выкуп</span>`;
+      } else {
+        statusBadge = `<span class="px-2.5 py-1 rounded-full text-[11px] font-bold bg-blue-50 text-blue-700 border border-blue-200">В аренде</span>`;
+      }
     } else if (bike.status === 'available') {
       statusBadge = `<span class="px-2.5 py-1 rounded-full text-[11px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">Свободен</span>`;
     } else {
@@ -862,10 +869,13 @@ function renderFleet() {
               const todayStr = getCurrentDate().toISOString().split('T')[0];
               const isExpired = Boolean(bike.rentalEnd && bike.rentalEnd < todayStr);
               return `
-              <div class="flex items-center space-x-2 p-2 rounded-xl ${isExpired ? 'bg-rose-50/80 border border-rose-200' : 'bg-blue-50/50 border border-blue-100'}">
-                <i class="ph-bold ${isExpired ? 'ph-warning-circle text-rose-600' : 'ph-user text-blue-700'} text-sm"></i>
+              <div class="flex items-center space-x-2 p-2 rounded-xl ${isExpired ? 'bg-rose-50/80 border border-rose-200' : (bike.dealType === 'buyout' ? 'bg-purple-50/60 border border-purple-200' : 'bg-blue-50/50 border border-blue-100')}">
+                <i class="ph-bold ${isExpired ? 'ph-warning-circle text-rose-600' : (bike.dealType === 'buyout' ? 'ph-handshake text-purple-700' : 'ph-user text-blue-700')} text-sm"></i>
                 <div class="overflow-hidden">
-                  <div class="font-bold text-slate-900 truncate">${courier.fullName}</div>
+                  <div class="font-bold text-slate-900 truncate flex items-center space-x-1">
+                    <span>${courier.fullName}</span>
+                    ${bike.dealType === 'buyout' ? '<span class="text-[10px] px-1.5 py-0.2 rounded bg-purple-200 text-purple-800 font-bold">Выкуп</span>' : ''}
+                  </div>
                   <div class="text-[10px] ${isExpired ? 'text-rose-600 font-bold' : 'text-slate-500'}">до ${bike.rentalEnd || '—'} ${isExpired ? '• ПРОСРОЧЕНО' : ''} • ${courier.phone}</div>
                 </div>
               </div>
@@ -1079,7 +1089,10 @@ function renderCouriers() {
             ${hasBike && bike ? `
               <div class="p-2 rounded-xl bg-brand-50/60 border border-brand-100 text-brand-900 flex items-center justify-between">
                 <div>
-                  <div class="font-bold">Байк: #${bike.id} (${bike.model})</div>
+                  <div class="font-bold flex items-center space-x-1">
+                    <span>Байк: #${bike.id} (${bike.model})</span>
+                    ${bike.dealType === 'buyout' ? '<span class="text-[10px] px-1.5 py-0.2 rounded bg-purple-200 text-purple-800 font-bold">Выкуп</span>' : ''}
+                  </div>
                   <div class="text-[10px] text-brand-700">АКБ #${bike.batteryId || '—'}</div>
                 </div>
                 <button onclick="prepareCheckin('${bike.id}')" class="px-2 py-1 bg-white hover:bg-brand-100 text-brand-800 font-semibold rounded text-[11px] border border-brand-200">
@@ -1191,6 +1204,76 @@ function populateCheckoutSelects() {
   batterySelect.innerHTML = freeBatteries.length > 0
     ? freeBatteries.map(b => `<option value="${b.id}">#${b.id} — ${b.type}</option>`).join('')
     : `<option value="">Нет свободных АКБ на складе</option>`;
+
+  // Reset deal type to rent by default
+  switchCheckoutDealType('rent');
+  const daysSelect = document.getElementById('checkoutDaysSelect');
+  if (daysSelect) daysSelect.value = '7';
+  const customDaysContainer = document.getElementById('checkoutCustomDaysContainer');
+  if (customDaysContainer) customDaysContainer.classList.add('hidden');
+  const customDaysInput = document.getElementById('checkoutCustomDaysInput');
+  if (customDaysInput) customDaysInput.value = '';
+  const depositInput = document.getElementById('checkoutDepositInput');
+  if (depositInput) depositInput.value = '5000';
+  const buyoutDaysInput = document.getElementById('checkoutBuyoutDaysInput');
+  if (buyoutDaysInput) buyoutDaysInput.value = '90';
+  const buyoutPriceInput = document.getElementById('checkoutBuyoutPriceInput');
+  if (buyoutPriceInput) buyoutPriceInput.value = '65000';
+  const buyoutDepositInput = document.getElementById('checkoutBuyoutDepositInput');
+  if (buyoutDepositInput) buyoutDepositInput.value = '5000';
+}
+
+function switchCheckoutDealType(type) {
+  const dealTypeInput = document.getElementById('checkoutDealType');
+  const rentBtn = document.getElementById('dealTypeRentBtn');
+  const buyoutBtn = document.getElementById('dealTypeBuyoutBtn');
+  const rentFields = document.getElementById('checkoutRentFieldsBlock');
+  const buyoutFields = document.getElementById('checkoutBuyoutFieldsBlock');
+  const submitBtn = document.getElementById('checkoutSubmitBtn');
+
+  if (dealTypeInput) dealTypeInput.value = type;
+
+  if (type === 'buyout') {
+    if (rentBtn) {
+      rentBtn.className = 'flex-1 py-2 text-xs font-bold rounded-xl text-slate-500 hover:text-slate-900 transition-all flex items-center justify-center space-x-1.5';
+    }
+    if (buyoutBtn) {
+      buyoutBtn.className = 'flex-1 py-2 text-xs font-bold rounded-xl bg-purple-600 text-white shadow-sm transition-all flex items-center justify-center space-x-1.5';
+    }
+    if (rentFields) rentFields.classList.add('hidden');
+    if (buyoutFields) buyoutFields.classList.remove('hidden');
+    if (submitBtn) {
+      submitBtn.innerText = 'Оформить выкуп';
+      submitBtn.className = 'flex-1 py-2.5 bg-purple-600 hover:bg-purple-700 text-white rounded-xl font-semibold shadow-md shadow-purple-600/30 transition-all';
+    }
+  } else {
+    if (rentBtn) {
+      rentBtn.className = 'flex-1 py-2 text-xs font-bold rounded-xl bg-white text-brand-700 shadow-xs transition-all flex items-center justify-center space-x-1.5';
+    }
+    if (buyoutBtn) {
+      buyoutBtn.className = 'flex-1 py-2 text-xs font-bold rounded-xl text-slate-500 hover:text-slate-900 transition-all flex items-center justify-center space-x-1.5';
+    }
+    if (rentFields) rentFields.classList.remove('hidden');
+    if (buyoutFields) buyoutFields.classList.add('hidden');
+    if (submitBtn) {
+      submitBtn.innerText = 'Оформить и выдать';
+      submitBtn.className = 'flex-1 py-2.5 bg-brand-600 hover:bg-brand-700 text-white rounded-xl font-semibold shadow-md shadow-brand-600/30 transition-all';
+    }
+  }
+}
+
+function handleCheckoutDaysSelectChange(val) {
+  const container = document.getElementById('checkoutCustomDaysContainer');
+  const input = document.getElementById('checkoutCustomDaysInput');
+  if (val === 'custom') {
+    if (container) container.classList.remove('hidden');
+    if (input) {
+      if (!input.value) input.value = '7';
+      if (typeof input.focus === 'function') input.focus();
+    }
+  } else {
+    if (container) container.classList.add('hidden');
+  }
 }
 
 function populatePaymentSelects() {
@@ -1651,8 +1734,25 @@ function handleCheckout(e) {
   const courierId = document.getElementById('checkoutCourierSelect').value;
   const bikeId = document.getElementById('checkoutBikeSelect').value;
   const batteryId = document.getElementById('checkoutBatterySelect').value;
-  const days = Number(document.getElementById('checkoutDaysSelect').value) || 7;
-  const depositPaid = Number(document.getElementById('checkoutDepositInput').value) || 0;
+  const dealType = (document.getElementById('checkoutDealType') && document.getElementById('checkoutDealType').value) || 'rent';
+
+  let days = 7;
+  let buyoutPrice = 0;
+  let depositPaid = 0;
+
+  if (dealType === 'buyout') {
+    days = Number(document.getElementById('checkoutBuyoutDaysInput')?.value) || 90;
+    buyoutPrice = Number(document.getElementById('checkoutBuyoutPriceInput')?.value) || 65000;
+    depositPaid = Number(document.getElementById('checkoutBuyoutDepositInput')?.value) || 0;
+  } else {
+    const daysSelect = document.getElementById('checkoutDaysSelect')?.value;
+    if (daysSelect === 'custom') {
+      days = Number(document.getElementById('checkoutCustomDaysInput')?.value) || 7;
+    } else {
+      days = Number(daysSelect) || 7;
+    }
+    depositPaid = Number(document.getElementById('checkoutDepositInput')?.value) || 0;
+  }
 
   if (!courierId || !bikeId) {
     showToast('Выберите курьера и велосипед!', 'error');
@@ -1671,6 +1771,12 @@ function handleCheckout(e) {
   const endStr = endDate.toISOString().split('T')[0];
 
   bike.status = 'in_rent';
+  bike.dealType = dealType;
+  if (dealType === 'buyout') {
+    bike.buyoutPrice = buyoutPrice;
+  } else {
+    delete bike.buyoutPrice;
+  }
   bike.currentCourierId = courier.id;
   bike.rentalStart = startStr;
   bike.rentalEnd = endStr;
@@ -1686,6 +1792,10 @@ function handleCheckout(e) {
   courier.status = 'active';
   if (depositPaid) courier.deposit = (courier.deposit || 0) + depositPaid;
 
+  const historyDesc = dealType === 'buyout'
+    ? `Оформлен выкуп байка #${bike.id} (${bike.model}) на ${days} дн. Полная стоимость: ${buyoutPrice.toLocaleString()} ₽`
+    : `Оформлена аренда байка #${bike.id} на ${days} дн.`;
+
   state.history.unshift({
     id: `H-${Date.now()}`,
     timestamp: getCurrentDate().toISOString().replace('T', ' ').substring(0, 16),
@@ -1693,20 +1803,20 @@ function handleCheckout(e) {
     courierName: courier.fullName,
     bikeId: bike.id,
     batteryId: bike.batteryId,
-    amount: 3500,
-    description: `Оформлена аренда байка #${bike.id} на ${days} дн.`
+    amount: dealType === 'buyout' ? depositPaid : 3500,
+    description: historyDesc
   });
 
   saveLocalDatabase();
   closeModal('checkoutModal');
   updateBadges();
   renderCurrentTab();
-  showToast('Велосипед и АКБ успешно выданы курьеру!', 'success');
+  showToast(dealType === 'buyout' ? `Байк #${bike.id} оформлен под выкуп курьеру!` : 'Велосипед и АКБ успешно выданы курьеру!', 'success');
 
   fetch('/api/rentals/checkout', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ courierId, bikeId, batteryId, days, depositPaid, rateAmount: 3500 })
+    body: JSON.stringify({ courierId, bikeId, batteryId, days, depositPaid, dealType, buyoutPrice, rateAmount: 3500 })
   }).catch(() => {});
 }
 
@@ -1739,6 +1849,8 @@ function handleCheckin(e) {
   bike.currentCourierId = null;
   bike.rentalStart = null;
   bike.rentalEnd = null;
+  bike.dealType = null;
+  delete bike.buyoutPrice;
   if (conditionNote) bike.condition = conditionNote;
 
   if (bike.batteryId) {
